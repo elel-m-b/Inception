@@ -1,1136 +1,913 @@
-# 🐳 Inception — A Deep Dive into Docker & DevOps
+# 🐳 Inception — The Complete DevOps Handbook
 
-> *"Tell me and I forget. Teach me and I remember. Involve me and I learn."* — Benjamin Franklin
+> *"You do not understand a system until you can rebuild it from nothing, explain every line, and defend every decision."*
+
+A complete, from-first-principles guide to the 42 School **Inception** project — covering Linux, virtualization, Docker, Docker Compose, networking, NGINX, TLS, PHP-FPM, WordPress, MariaDB, shell scripting, process management, security, and debugging.
+
+This is not project documentation. This is a textbook. Read it top to bottom once, then use it as a reference while you build.
 
 ---
 
-## 📋 Table of Contents
+## 📚 Table of Contents
 
 1. [Introduction](#1-introduction)
-2. [Core Docker Concepts](#2-core-docker-concepts)
-3. [Dockerfile — Deep Dive](#3-dockerfile--deep-dive)
-4. [Docker Compose — Core of the Project](#4-docker-compose--core-of-the-project)
-5. [Networking](#5-networking)
-6. [Volumes and Persistence](#6-volumes-and-persistence)
-7. [Inception Architecture](#7-inception-architecture)
-8. [Security and Best Practices](#8-security-and-best-practices)
-9. [Debugging and Troubleshooting](#9-debugging-and-troubleshooting)
-10. [Advanced Concepts — Low Level](#10-advanced-concepts--low-level)
-11. [Evaluation Questions — 42 Style](#11-evaluation-questions--42-style)
-12. [Full Example Project](#12-full-example-project)
-13. [Makefile Explanation](#13-makefile-explanation)
-14. [Conclusion](#14-conclusion)
+2. [Linux Fundamentals](#2-linux-fundamentals)
+3. [Virtual Machines vs Containers](#3-virtual-machines-vs-containers)
+4. [Docker Fundamentals](#4-docker-fundamentals)
+5. [Dockerfile](#5-dockerfile)
+6. [Docker Compose](#6-docker-compose)
+7. [Docker Networking](#7-docker-networking)
+8. [Volumes](#8-volumes)
+9. [Environment Variables and Docker Secrets](#9-environment-variables-and-docker-secrets)
+10. [NGINX](#10-nginx)
+11. [TLS and OpenSSL](#11-tls-and-openssl)
+12. [PHP and PHP-FPM](#12-php-and-php-fpm)
+13. [WordPress](#13-wordpress)
+14. [MariaDB](#14-mariadb)
+15. [Shell Scripting](#15-shell-scripting)
+16. [Process Management](#16-process-management)
+17. [Makefile](#17-makefile)
+18. [Project Architecture](#18-project-architecture)
+19. [Project Workflow](#19-project-workflow)
+20. [Security Best Practices](#20-security-best-practices)
+21. [Debugging](#21-debugging)
+22. [Common Pitfalls](#22-common-pitfalls)
+23. [Evaluation Questions](#23-evaluation-questions)
+24. [Practical Exercises](#24-practical-exercises)
+25. [Final Checklist](#25-final-checklist)
 
 ---
 
 ## 1. Introduction
 
-### What is Inception?
+### 1.1 What is Inception?
 
-Inception is a **system administration project** at 42 School that requires you to set up a small **infrastructure composed of different services** using **Docker** and **Docker Compose**. You are not allowed to use pre-built images from Docker Hub (except for Alpine or Debian base images). You must build everything yourself.
+Inception is a 42 School system administration project. The mission, stripped to its core, is this:
 
-The project forces you to understand:
-- How Docker containers actually work at a fundamental level
-- How multi-service architectures communicate
-- How to manage data persistence, secrets, networking, and security
-- The DevOps mindset: infrastructure as code, reproducibility, isolation
+> Build a small hosting infrastructure — a website (WordPress), its database (MariaDB), and a web server that fronts it with TLS (NGINX) — where **every service runs inside its own Docker container**, containers are built **from scratch using your own Dockerfiles** (not pre-built images pulled from Docker Hub, except as a base OS layer), and the whole thing is orchestrated with **Docker Compose**.
 
-### The Goal
+On paper that's three services. In practice it forces you to learn an entire professional stack: Linux internals, containerization theory, networking, TLS, process supervision, database initialization, PHP application servers, and infrastructure-as-code. That's why it's such a valuable project — it is a compressed, hands-on crash course in DevOps.
 
-| Objective | Why It Matters |
-|-----------|----------------|
-| Understand Docker internals | You can't debug what you don't understand |
-| Set up NGINX + WordPress + MariaDB | A classic, production-like web stack |
-| Use Docker Compose | Industry-standard tool for multi-container apps |
-| Practice DevOps thinking | Reproducible, isolated, maintainable infrastructure |
+### 1.2 Why does 42 teach Docker?
 
-### Virtual Machines vs. Containers
+Two reasons, one technical and one cultural:
 
-This is **the most fundamental concept** to grasp before anything else.
+**Technical reason.** Modern software is not "a program you compile." It's a *system* of cooperating processes — a web server, an app server, a database, caches, queues — that must be deployed consistently across a developer's laptop, a CI pipeline, and a production server. Containers solved the "it works on my machine" problem by packaging an application with its exact runtime environment. Understanding *why* this problem existed and *how* containers solve it is more valuable than memorizing Docker commands.
 
+**Cultural reason.** 42's pedagogy is "project-based learning without lectures." Inception is the first project where you stop writing an isolated program and start **assembling a system out of other people's software**, configured correctly, wired together securely, and made reproducible. That's the actual day job of most backend/DevOps engineers.
+
+### 1.3 Learning Objectives
+
+By the end of this project (and this README) you should be able to:
+
+- Explain the difference between a virtual machine and a container **at the kernel level**.
+- Write a Dockerfile from scratch for any Linux-based service, and explain every instruction.
+- Write a multi-service `docker-compose.yml` with networks, volumes, and dependency ordering.
+- Configure NGINX as a TLS-terminating reverse proxy in front of a PHP-FPM application.
+- Explain the TLS handshake and generate self-signed certificates with OpenSSL.
+- Initialize a MariaDB database non-interactively on first container boot, and understand why that boot logic is tricky.
+- Deploy WordPress without the browser install wizard, using `wp-cli`.
+- Write POSIX-compliant entrypoint scripts that wait for dependencies and correctly hand off to PID 1.
+- Debug a broken multi-container stack methodically, from the network layer up to the application layer.
+- Defend every configuration decision in front of an evaluator who will ask "why," not "what."
+
+### 1.4 Skills Gained
+
+| Domain | Skills |
+|---|---|
+| Linux | Filesystem hierarchy, permissions, users/groups, process model, systemd |
+| Networking | TCP/IP, DNS, ports, Docker bridge networks, reverse proxying |
+| Docker | Image layering, build cache, Dockerfile authoring, Compose orchestration |
+| Security | TLS/SSL, least privilege, secrets management, non-root containers |
+| Web stack | NGINX, FastCGI, PHP-FPM, WordPress internals |
+| Database | MariaDB administration, SQL users/privileges, data persistence |
+| Scripting | POSIX shell, entrypoint patterns, idempotent initialization |
+| Ops discipline | Makefiles, structured debugging, log reading, systems thinking |
+
+### 1.5 Final Architecture Overview
+
+```mermaid
+flowchart TB
+    subgraph Host["🖥️ Host Machine (your VM)"]
+        subgraph DockerNet["docker network: inception (bridge)"]
+            NGINX["🌐 NGINX container<br/>TLS termination :443"]
+            WP["🐘 WordPress + PHP-FPM container<br/>:9000 (FastCGI, internal only)"]
+            DB["🗄️ MariaDB container<br/>:3306 (internal only)"]
+            NGINX -- "FastCGI over TCP" --> WP
+            WP -- "SQL over TCP" --> DB
+        end
+        VolWP[("📦 Named volume<br/>wordpress_data")]
+        VolDB[("📦 Named volume<br/>db_data")]
+        WP --- VolWP
+        DB --- VolDB
+    end
+    Browser["🧑‍💻 Browser<br/>https://login.42.fr"] -- "HTTPS :443 only" --> NGINX
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     VIRTUAL MACHINES                        │
-├─────────────────────────────────────────────────────────────┤
-│  App A         App B         App C                          │
-│  ─────         ─────         ─────                          │
-│  Bins/Libs     Bins/Libs     Bins/Libs                      │
-│  ─────────     ─────────     ─────────                      │
-│  Guest OS      Guest OS      Guest OS    ← Full OS per VM   │
-│  (Ubuntu)      (CentOS)      (Debian)                       │
-│  ──────────────────────────────────────                     │
-│              Hypervisor                  ← VMware, VirtualBox│
-│  ──────────────────────────────────────                     │
-│              Host OS                                        │
-│  ──────────────────────────────────────                     │
-│              Hardware                                       │
-└─────────────────────────────────────────────────────────────┘
 
-┌─────────────────────────────────────────────────────────────┐
-│                       CONTAINERS                            │
-├─────────────────────────────────────────────────────────────┤
-│  App A         App B         App C                          │
-│  ─────         ─────         ─────                          │
-│  Bins/Libs     Bins/Libs     Bins/Libs  ← Only what's needed│
-│  ──────────────────────────────────────                     │
-│              Docker Engine              ← Shared kernel     │
-│  ──────────────────────────────────────                     │
-│              Host OS                                        │
-│  ──────────────────────────────────────                     │
-│              Hardware                                       │
-└─────────────────────────────────────────────────────────────┘
-```
+Only port **443** is exposed to the host. Everything else — PHP-FPM's port 9000, MariaDB's port 3306 — is reachable *only* inside the private Docker network. This single diagram encodes about half of the security reasoning behind the whole project; keep it in mind as you read.
 
-| Feature | Virtual Machine | Container |
-|---------|----------------|-----------|
-| **Startup time** | Minutes | Milliseconds |
-| **Size** | Gigabytes | Megabytes |
-| **Isolation** | Full OS isolation | Process-level isolation |
-| **Kernel** | Own kernel per VM | Shares host kernel |
-| **Overhead** | High (full OS) | Very low |
-| **Use case** | Strong isolation needed | Microservices, fast deployments |
-
-> **Key insight:** A container is NOT a mini-VM. It is a **regular Linux process** that is isolated using kernel features (namespaces and cgroups). The kernel is shared. This is why containers are so fast and lightweight.
+> **Note:** In the diagrams throughout this document, arrows show the direction of the *initiating* request, not necessarily the direction of data flow (responses always flow back).
 
 ---
 
-## 2. Core Docker Concepts
+## 2. Linux Fundamentals
 
-### What is Docker?
+Docker does not replace your need to know Linux — it *demands* it. A container is, at its core, just a Linux process with restricted visibility into the host. If you don't understand processes, filesystems, permissions, and networking on a bare Linux box, Docker will feel like magic instead of engineering. This chapter removes the magic.
 
-Docker is a **platform for building, shipping, and running applications in containers**. It provides:
+### 2.1 Linux Architecture
 
-- A **standard format** for packaging apps (images)
-- A **runtime** for running containers (Docker Engine)
-- A **registry** for storing and sharing images (Docker Hub / your own registry)
-- Tools like **Docker Compose** for orchestrating multi-container apps
-
-### Docker Architecture
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                      DOCKER ARCHITECTURE                     │
-│                                                              │
-│  ┌─────────────┐          ┌──────────────────────────────┐  │
-│  │ Docker CLI  │          │      Docker Daemon           │  │
-│  │             │          │      (dockerd)               │  │
-│  │ docker run  │─────────▶│                              │  │
-│  │ docker build│  REST    │  ┌──────────┐ ┌──────────┐  │  │
-│  │ docker ps   │  API     │  │Container │ │Container │  │  │
-│  │             │          │  │  nginx   │ │wordpress │  │  │
-│  └─────────────┘          │  └──────────┘ └──────────┘  │  │
-│                           │                              │  │
-│  ┌─────────────┐          │  ┌──────────────────────┐   │  │
-│  │ Docker      │          │  │    Image Cache       │   │  │
-│  │ Compose     │─────────▶│  │  nginx:alpine        │   │  │
-│  │             │          │  │  debian:bullseye      │   │  │
-│  └─────────────┘          └──────────────────────────────┘  │
-│                                        │                     │
-│                                        │ pull/push           │
-│                                        ▼                     │
-│                           ┌────────────────────────┐        │
-│                           │   Docker Registry      │        │
-│                           │   (Docker Hub /        │        │
-│                           │    private registry)   │        │
-│                           └────────────────────────┘        │
-└──────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    A["User Applications<br/>(bash, nginx, mysqld, php-fpm)"] --> B["Shared Libraries<br/>(glibc, musl)"]
+    B --> C["System Call Interface"]
+    C --> D["Linux Kernel<br/>(process mgmt, memory mgmt, filesystems,<br/>device drivers, network stack)"]
+    D --> E["Hardware<br/>(CPU, RAM, disk, NIC)"]
 ```
 
-**Three main components:**
+Linux is a **monolithic kernel**: process scheduling, memory management, filesystems, and networking all run in a single privileged address space called **kernel space**. Everything else — your shell, `nginx`, `mysqld` — runs in **user space** and can only touch hardware or kernel resources through **system calls** (`open()`, `read()`, `write()`, `fork()`, `execve()`, `socket()`...).
 
-1. **Docker Client (`docker` CLI):** The tool you type commands into. It speaks to the Docker daemon via a REST API over a Unix socket (`/var/run/docker.sock`).
+> **Why this matters for Docker:** containers share the host's kernel. There is no "container kernel." This single fact is the root of almost every VM-vs-container difference discussed in Chapter 3.
 
-2. **Docker Daemon (`dockerd`):** The background service that does all the heavy lifting: pulling images, creating containers, managing networks and volumes.
+### 2.2 The Filesystem Hierarchy Standard (FHS)
 
-3. **Docker Registry:** A storage and distribution system for Docker images. Docker Hub is the default public registry. In production, companies run private registries.
+Linux organizes everything — including devices and running processes — as files under a single root `/`. Key directories:
 
----
+| Path | Purpose |
+|---|---|
+| `/bin`, `/usr/bin` | Essential user command binaries |
+| `/sbin`, `/usr/sbin` | System administration binaries (often need root) |
+| `/etc` | System-wide configuration files (static, not binaries) |
+| `/var` | Variable data: logs (`/var/log`), databases, mail spools |
+| `/home` | User home directories |
+| `/root` | The root user's home directory |
+| `/tmp` | Temporary files, usually cleared on reboot |
+| `/proc` | Virtual filesystem exposing kernel/process info (not real files on disk!) |
+| `/sys` | Virtual filesystem exposing kernel/device info |
+| `/dev` | Device files (`/dev/null`, `/dev/sda`, `/dev/tty`) |
+| `/lib`, `/usr/lib` | Shared libraries |
+| `/opt` | Optional/third-party software |
+| `/mnt`, `/media` | Mount points for external filesystems |
 
-### Images vs Containers
-
-> **The relationship:** An image is to a container as a **class is to an object** in OOP, or a **recipe is to a meal**.
-
-```
-           BUILD                    RUN
-┌──────────────┐      docker run    ┌──────────────────┐
-│ Dockerfile   │─────────────────▶ │   Container      │
-│              │                    │  (running image) │
-│ Instructions │                    │                  │
-│ + Base image │ docker build       │  Has its own:    │
-│              │─────────────────▶ │  - Filesystem    │
-│              │     ┌──────────┐   │  - Network       │
-│              │     │  Image   │   │  - Process space │
-│              │     │ (frozen  │   │                  │
-│              │     │ snapshot)│   └──────────────────┘
-└──────────────┘     └──────────┘
-```
-
-**Image:** A read-only template. A stack of filesystem layers. Immutable. Can be stored and shared.
-
-**Container:** A running instance of an image. Has a writable layer on top. Lives and dies. Can be stopped/started.
-
-#### Container Lifecycle
-
-```
-                    docker run
-                        │
-                        ▼
-              ┌─────────────────┐
-              │    CREATED      │ ◀─── docker create
-              └────────┬────────┘
-                       │ docker start
-                       ▼
-              ┌─────────────────┐
-              │    RUNNING      │ ◀─── docker start / docker run
-              └────────┬────────┘
-                       │ process exits / docker stop
-                       ▼
-              ┌─────────────────┐
-              │    STOPPED      │ ──── docker start ──▶ RUNNING
-              │    (Exited)     │
-              └────────┬────────┘
-                       │ docker rm
-                       ▼
-              ┌─────────────────┐
-              │    DELETED      │
-              └─────────────────┘
-
-Special state:
-              ┌─────────────────┐
-              │    PAUSED       │ ◀─── docker pause (SIGSTOP)
-              └─────────────────┘ ──── docker unpause ──▶ RUNNING
+```bash
+$ ls -la /
+drwxr-xr-x   1 root root  4096 Jan  1 12:00 .
+drwxr-xr-x   1 root root  4096 Jan  1 12:00 ..
+drwxr-xr-x   2 root root  4096 Jan  1 12:00 bin
+drwxr-xr-x   5 root root   360 Jan  1 12:00 dev
+drwxr-xr-x   1 root root  4096 Jan  1 12:00 etc
+drwxr-xr-x   3 root root  4096 Jan  1 12:00 home
+...
 ```
 
----
+> **Tip:** `/proc/1/status` shows you information about PID 1 right now. Try `cat /proc/1/status` inside any container — it will show you *the container's own init process*, not the host's. This is your first hands-on proof that containers have an isolated **PID namespace**.
 
-### Layers and Union File System
+### 2.3 Users, Groups, and Permissions
 
-This is how Docker makes images efficient. Every instruction in a Dockerfile creates a **new layer**. Layers are stacked on top of each other.
+Every file on Linux has an **owner (user)**, a **group**, and a set of **permission bits** for three classes: owner, group, others.
 
-```
-┌─────────────────────────────────────────────┐
-│           UNION FILESYSTEM (OverlayFS)      │
-│                                             │
-│  ┌─────────────────────────────────────┐   │
-│  │  Container Layer (READ/WRITE)       │   │  ← Your running container writes here
-│  │  /tmp/newfile.txt                   │   │    This layer is DELETED when container
-│  │  /etc/nginx/nginx.conf (modified)   │   │    is removed (unless volume used!)
-│  └─────────────────────────────────────┘   │
-│  ┌─────────────────────────────────────┐   │
-│  │  Image Layer 4 (READ ONLY)          │   │  ← COPY ./nginx.conf /etc/nginx/
-│  │  /etc/nginx/nginx.conf              │   │
-│  └─────────────────────────────────────┘   │
-│  ┌─────────────────────────────────────┐   │
-│  │  Image Layer 3 (READ ONLY)          │   │  ← RUN apt-get install nginx
-│  │  /usr/sbin/nginx                    │   │
-│  └─────────────────────────────────────┘   │
-│  ┌─────────────────────────────────────┐   │
-│  │  Image Layer 2 (READ ONLY)          │   │  ← RUN apt-get update
-│  │  /var/lib/apt/lists/...             │   │
-│  └─────────────────────────────────────┘   │
-│  ┌─────────────────────────────────────┐   │
-│  │  Image Layer 1 (READ ONLY)          │   │  ← FROM debian:bullseye
-│  │  / (base filesystem)                │   │
-│  └─────────────────────────────────────┘   │
-└─────────────────────────────────────────────┘
+```bash
+$ ls -l /etc/passwd
+-rw-r--r-- 1 root root 2847 Jan  1 12:00 /etc/passwd
 ```
 
-**Key facts:**
-- Layers are **shared** between images. If two images use the same `debian:bullseye` base, that layer is stored only once on disk.
-- This is called **Copy-on-Write (CoW)**: when a container needs to modify a read-only file, it copies that file up to the writable container layer.
-- This is why Docker images are efficient in both **storage** and **startup time**.
-
----
-
-### How Docker Uses the Linux Kernel
-
-Docker is NOT magic. It uses two fundamental Linux kernel features:
-
-#### 1. Namespaces — Isolation
-
-Namespaces make a process *think* it is alone on the system.
-
-| Namespace | Isolates |
-|-----------|----------|
-| `pid` | Process IDs (container sees its own PID 1) |
-| `net` | Network interfaces, IP addresses, routing |
-| `mnt` | Filesystem mount points |
-| `uts` | Hostname and domain name |
-| `ipc` | Inter-process communication (shared memory) |
-| `user` | User and group IDs |
+Reading `-rw-r--r--`:
 
 ```
-┌────────────────────────────────────────────────┐
-│  Host: PID 1=systemd, PID 1234=dockerd, ...    │
-│                                                │
-│  ┌──────────────────────────────────────────┐ │
-│  │  Container (nginx)                        │ │
-│  │  PID namespace: PID 1 = nginx            │ │
-│  │  Net namespace: eth0 = 172.18.0.2        │ │
-│  │  Mnt namespace: / = overlay filesystem   │ │
-│  │  UTS namespace: hostname = "nginx"       │ │
-│  └──────────────────────────────────────────┘ │
-│                                                │
-│  ┌──────────────────────────────────────────┐ │
-│  │  Container (mariadb)                     │ │
-│  │  PID namespace: PID 1 = mysqld           │ │
-│  │  Net namespace: eth0 = 172.18.0.3        │ │
-│  │  Mnt namespace: / = overlay filesystem   │ │
-│  └──────────────────────────────────────────┘ │
-└────────────────────────────────────────────────┘
+-     rw-      r--      r--
+type  owner    group    others
+      read/write  read-only  read-only
 ```
 
-#### 2. cgroups — Resource Control
+| Symbol | Meaning (files) | Meaning (directories) |
+|---|---|---|
+| `r` | Read file contents | List directory contents |
+| `w` | Modify file contents | Create/delete files inside |
+| `x` | Execute the file | `cd` into the directory |
 
-Control Groups (cgroups) limit and measure resource usage of a group of processes.
+Permissions are also representable as octal (base-8) numbers, one digit per class, each digit summing `r=4, w=2, x=1`:
 
 ```
-cgroups can limit:
-  ├── CPU:    max 50% of 2 cores
-  ├── Memory: max 512MB RAM
-  ├── I/O:    max 100MB/s disk read
-  └── Net:    network bandwidth (via tc)
+rwxr-xr--  →  owner=rwx=7, group=r-x=5, others=r--=4  →  754
 ```
 
-You can set these in Docker Compose:
+**`chmod`** — change permission bits:
+
+```bash
+chmod 755 script.sh        # owner: rwx, group: r-x, others: r-x
+chmod u+x script.sh        # add execute for owner only
+chmod -R 644 /var/www      # recursive; careful, this breaks directories! (dirs need +x to be enterable)
+```
+
+**`chown`** — change owner and/or group:
+
+```bash
+chown www-data:www-data /var/www/html   # user:group
+chown -R mysql:mysql /var/lib/mysql     # recursive ownership fix (very common in DB Dockerfiles)
+```
+
+**`sudo`** — execute a command as another user (usually root), governed by `/etc/sudoers`. Inside minimal Docker containers, `sudo` is often *not installed* — you either run as root by default, or you switch users with the Dockerfile `USER` instruction, or you use `su`.
+
+> ⚠️ **Common mistake:** running every container process as root "because it's easier." A container process running as root has root privileges *inside the container's namespaces*, and if there's a container-escape vulnerability, that matters a lot. Chapter 20 covers this. Inception explicitly expects non-root, least-privilege processes where feasible (e.g., `nginx` worker processes, `mysqld` running as the `mysql` user, PHP-FPM workers running as `www-data`).
+
+**Evaluation questions — Users & Permissions**
+
+1. What do the three permission classes represent?
+2. What does `chmod 700` mean and when would you use it?
+3. Why does a directory need the execute bit to be "enterable," not the read bit?
+4. What is the difference between `chown` and `chmod`?
+5. Why shouldn't your Dockerfile run everything as root?
+
+### 2.4 Processes, PIDs, and Daemons
+
+A **process** is a running instance of a program: its own memory space, file descriptors, and execution state. The kernel identifies every process with a unique **PID** (Process ID).
+
+```bash
+$ ps aux
+USER   PID  %CPU %MEM    VSZ   RSS TTY  STAT START   TIME COMMAND
+root     1   0.0  0.1  16812  9120 ?    Ss   09:00   0:01 /sbin/init
+root    412  0.0  0.0   8000  1200 ?    Ss   09:00   0:00 /usr/sbin/nginx
+www-d   413  0.0  0.2  30000  8000 ?    S    09:00   0:00 php-fpm: pool www
+```
+
+**PID 1** is special. It's the first process the kernel starts at boot (or, in a container, the first process the container runtime starts). PID 1 has two extra responsibilities other processes don't have:
+
+1. It must **reap zombie processes** — when any process's parent dies, its orphaned children get re-parented to PID 1, and PID 1 must `wait()` on them to clear them from the process table.
+2. The kernel treats PID 1 specially with respect to **default signal handling** — signals like `SIGTERM` do *not* automatically terminate PID 1 unless the program explicitly handles them.
+
+A **daemon** is a process that runs in the background, detached from any controlling terminal, typically providing a service (a web server, a database engine). Traditionally daemons "double-fork" and detach from the terminal; in Docker, we deliberately do the *opposite* — we run the daemon **in the foreground** so the container runtime can track it as PID 1 (more in Chapter 16).
+
+```bash
+ps aux            # snapshot of all processes
+ps -ef             # alternate format, shows PPID (parent PID)
+top / htop         # live process monitor
+kill -TERM <pid>   # send SIGTERM (graceful stop request)
+kill -9 <pid>      # send SIGKILL (immediate, un-catchable termination)
+kill -l             # list all signal names
+```
+
+### 2.5 Signals
+
+Signals are the kernel's way of delivering asynchronous notifications to a process.
+
+| Signal | Number | Default action | Meaning |
+|---|---|---|---|
+| `SIGHUP` | 1 | Terminate | Terminal closed / "reload config" (convention) |
+| `SIGINT` | 2 | Terminate | Interrupt from keyboard (Ctrl+C) |
+| `SIGQUIT` | 3 | Core dump | Quit from keyboard (Ctrl+\) |
+| `SIGKILL` | 9 | Terminate | Forceful, **cannot be caught, blocked, or ignored** |
+| `SIGTERM` | 15 | Terminate | Polite request to terminate; **can be caught** |
+| `SIGSTOP` | 19 | Stop | Pause process, cannot be caught |
+| `SIGCONT` | 18 | Continue | Resume a stopped process |
+
+`docker stop` sends `SIGTERM`, waits a grace period (default 10s), then sends `SIGKILL` if the process hasn't exited. This is why your entrypoint process needs to correctly handle `SIGTERM` — otherwise `docker stop` on your stack always takes the full timeout and hard-kills your database, risking data corruption.
+
+### 2.6 Shell and Bash
+
+The **shell** is a program that reads commands you type and asks the kernel to execute them. Bash (Bourne Again SHell) is the most common Linux shell; Alpine-based Docker images (very common for Inception, since they're small) typically ship **`ash`** (via BusyBox) or plain **`sh`**, not bash, unless you install it explicitly.
+
+```bash
+#!/bin/sh
+# shebang line: tells the kernel which interpreter runs this script
+echo "Hello from a POSIX shell script"
+```
+
+> **Tip:** Alpine's default shell is not bash. If your entrypoint script uses bash-only syntax (`[[ ]]`, arrays, `source`) but starts with `#!/bin/sh`, it will fail or behave unexpectedly on Alpine. Either install bash or write strictly POSIX `sh` syntax. Chapter 15 covers this in depth.
+
+### 2.7 Environment Variables
+
+Environment variables are key-value pairs available to a process and its children, forming part of a process's execution context.
+
+```bash
+export MYSQL_DATABASE=wordpress
+echo $MYSQL_DATABASE
+env                      # list all env vars in current shell
+printenv MYSQL_DATABASE  # print one variable
+```
+
+In Docker they are how you inject configuration into a container without baking it into the image — critical for Inception, where DB names, users, and passwords must not be hardcoded (Chapter 9).
+
+```dockerfile
+ENV PHP_FPM_LISTEN=9000
+```
+
 ```yaml
-services:
-  wordpress:
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
+# docker-compose.yml
+environment:
+  - MYSQL_DATABASE=wordpress
+env_file:
+  - .env
 ```
 
-> **Summary:** A Docker container is just a Linux process running with namespaces (isolation) and cgroups (resource limits). There is no emulation, no virtualization, no separate kernel. This is why containers start in milliseconds.
+### 2.8 Networking Basics
+
+**TCP/IP** is the layered protocol suite underlying almost all internet and container communication.
+
+```mermaid
+flowchart TB
+    App["Application Layer<br/>(HTTP, FastCGI, MySQL protocol)"]
+    Transport["Transport Layer<br/>(TCP: reliable, ordered / UDP: fast, unordered)"]
+    Internet["Internet Layer<br/>(IP: addressing & routing)"]
+    Link["Link Layer<br/>(Ethernet, ARP)"]
+    App --> Transport --> Internet --> Link
+```
+
+- **IP address**: a numeric address identifying a host on a network (`172.18.0.3`).
+- **Port**: a 16-bit number (0–65535) identifying a specific service/process on a host. NGINX conventionally listens on 80/443, MariaDB on 3306, PHP-FPM on 9000.
+- **`localhost` / `127.0.0.1`**: the **loopback** interface — a virtual network interface that routes traffic back to the same machine without touching real hardware. Crucially, **inside a container, `localhost` refers to the container itself**, not the host and not other containers. This trips up almost every Inception student at least once: WordPress cannot reach MariaDB via `localhost` — it must use the **service name** (`mariadb`) as a hostname, resolved via Docker's internal DNS (Chapter 7).
+- **DNS (Domain Name System)**: translates human-readable names (`login.42.fr`, `mariadb`) into IP addresses.
+
+```bash
+dig google.com          # DNS query tool, detailed output
+nslookup google.com     # simpler DNS query tool
+ping 8.8.8.8             # ICMP echo request — tests basic reachability
+curl -v https://example.com   # full HTTP(S) request with verbose protocol trace
+ss -tulpn                 # show listening TCP/UDP sockets + owning process
+netstat -tulpn             # older equivalent of ss
+```
+
+### 2.9 Services, systemd, and Package Managers
+
+**systemd** is the modern Linux **init system** — PID 1 on most distributions — responsible for booting the system, starting/stopping/supervising services ("units"), and managing dependencies between them (`systemctl start nginx`, `systemctl enable mariadb`).
+
+> **Why Inception containers don't use systemd:** systemd assumes it *is* PID 1 of a full OS boot, managing cgroups, mounting filesystems, and supervising dozens of services. A container is not a full OS boot — it's one job. Running systemd inside a container is possible but heavyweight, fights the container model, and is explicitly discouraged by 42's subject. Instead, Inception containers use a **single foreground process** (Chapter 16) or a minimal custom entrypoint script.
+
+**Package managers** install/update/remove software and resolve dependencies:
+
+| Distro family | Package manager | Example |
+|---|---|---|
+| Debian/Ubuntu | `apt` / `apt-get` | `apt-get install -y nginx` |
+| Alpine | `apk` | `apk add --no-cache nginx` |
+| RHEL/CentOS/Fedora | `dnf` / `yum` | `dnf install -y nginx` |
+
+> **Tip:** Alpine's `--no-cache` flag skips writing the package index to disk, which keeps the final image smaller — a small but very "Inception-graded" detail.
+
+**Evaluation questions — Linux fundamentals**
+
+6. What is PID 1 and why is it special?
+7. What's the difference between `SIGTERM` and `SIGKILL`?
+8. Why can't WordPress connect to MariaDB using `localhost`?
+9. What does `apk add --no-cache` do and why use it in a Dockerfile?
+10. Explain what happens, layer by layer, when you run `curl https://example.com`.
+11. Why doesn't Inception recommend running systemd inside containers?
+12. What is the difference between a process and a daemon?
+13. What does `/proc` contain, and is it "real" data on disk?
+
 
 ---
 
-## 3. Dockerfile — Deep Dive
+## 3. Virtual Machines vs Containers
 
-A `Dockerfile` is a **text file with instructions** to build a Docker image. Each instruction creates a new layer.
+### 3.1 Virtualization and the Hypervisor
 
-### Every Instruction Explained
+A **hypervisor** (VMM — Virtual Machine Monitor) is software that creates and runs virtual machines by emulating hardware (virtual CPU, virtual RAM, virtual disk, virtual NIC). Each VM runs its **own full kernel and OS**, completely unaware it's virtualized (mostly).
 
-#### `FROM` — The Starting Point
+- **Type 1 (bare-metal) hypervisor**: runs directly on hardware (VMware ESXi, Xen, KVM). Used in datacenters.
+- **Type 2 (hosted) hypervisor**: runs as an application on top of a host OS (VirtualBox, VMware Workstation, Parallels). Used on laptops/dev machines — this is likely what runs your 42 VM.
 
-```dockerfile
-FROM debian:bullseye
-FROM alpine:3.18
-FROM debian:bullseye AS builder   # Multi-stage build
+### 3.2 Containerization
+
+A **container** is not a lightweight VM — it's a **regular Linux process** with a restricted view of the system, achieved through two kernel features:
+
+- **Namespaces** — isolate *what a process can see*: its own PID tree, its own network stack, its own mount points, its own hostname, its own user ID mapping.
+- **Control groups (cgroups)** — limit *what a process can use*: CPU shares, memory limits, I/O bandwidth.
+
+```mermaid
+flowchart LR
+    subgraph VM["Virtual Machine Model"]
+        direction TB
+        HW1[Hardware] --> HV[Hypervisor]
+        HV --> G1[Guest OS + Kernel #1]
+        HV --> G2[Guest OS + Kernel #2]
+        G1 --> A1[App A]
+        G2 --> A2[App B]
+    end
+    subgraph CT["Container Model"]
+        direction TB
+        HW2[Hardware] --> OS[Host OS + Single Kernel]
+        OS --> D[Docker Engine]
+        D --> C1["Container A<br/>(namespaced process)"]
+        D --> C2["Container B<br/>(namespaced process)"]
+    end
 ```
 
-- Every Dockerfile **must** start with `FROM`
-- Specifies the **base image** to start from
-- `alpine` is ~5MB; `debian:bullseye` is ~80MB
-- `AS builder` names a stage for multi-stage builds
+### 3.3 Comparison Table
 
-#### `RUN` — Execute Commands During Build
+| Aspect | Virtual Machine | Container |
+|---|---|---|
+| Kernel | Each VM has its own kernel | All containers share the host kernel |
+| Boot time | Seconds to minutes (full OS boot) | Milliseconds (just starting a process) |
+| Image size | Gigabytes (full OS) | Megabytes (Alpine ≈ 5–8 MB base) |
+| Isolation strength | Strong (hardware-level via hypervisor) | Weaker (kernel-level via namespaces) |
+| Resource overhead | High (each VM reserves RAM/CPU) | Low (shares host resources dynamically) |
+| Portability | Portable, but heavy to move | Highly portable; images are layered and cacheable |
+| Use case | Run different OS kernels, strong multi-tenant isolation | Package & ship one app's runtime, fast scaling, microservices |
 
-```dockerfile
-RUN apt-get update && apt-get install -y nginx \
-    && rm -rf /var/lib/apt/lists/*
+> **Why this matters for the Inception defense:** evaluators love asking "why not just install NGINX, WordPress and MariaDB directly on the VM?" The honest answer is: you *could*, but you'd lose reproducibility, isolation between services (a MariaDB crash could take down PHP), easy teardown/rebuild, and you'd violate the pedagogical point of the project — learning to think in isolated, declarative, disposable services.
+
+**Evaluation questions — VMs vs Containers**
+
+14. Why do containers start in milliseconds while VMs take seconds?
+15. What two Linux kernel features implement containerization?
+16. Why is container isolation considered "weaker" than VM isolation?
+17. Could you run a Windows container on a Linux host kernel? Why or why not?
+18. What would happen to all containers if the host kernel panicked?
+
+---
+
+## 4. Docker Fundamentals
+
+### 4.1 Docker Architecture
+
+```mermaid
+flowchart LR
+    CLI["docker CLI<br/>(Client)"] -- "REST API over<br/>Unix socket" --> Daemon["dockerd<br/>(Docker Daemon)"]
+    Daemon --> Containerd["containerd"]
+    Containerd --> Runc["runc<br/>(OCI runtime, creates namespaces/cgroups)"]
+    Daemon --> Images[("Local image store")]
+    Daemon <-- "pull / push" --> Registry["Docker Hub /<br/>private registry"]
 ```
 
-- Executes a command **during the image build**
-- Creates a new layer for each `RUN` instruction
-- **Best practice:** Chain commands with `&&` and `\` to reduce layers
-- **Always** clean package manager caches in the **same** `RUN` to keep layers small
+- **Docker Client** — the `docker` command you type. It just sends requests to the daemon.
+- **Docker Daemon (`dockerd`)** — the background service that builds images, runs containers, manages networks and volumes.
+- **containerd / runc** — lower layers that actually create the namespaces/cgroups and start the container process, following the **OCI (Open Container Initiative)** spec — meaning Docker, Podman, and other runtimes can all run the same image format.
 
-#### `COPY` vs `ADD`
+### 4.2 Images vs Containers
 
-```dockerfile
-COPY ./nginx.conf /etc/nginx/nginx.conf
-COPY --chown=www-data:www-data ./html /var/www/html
+> An **image** is a read-only template (your application + its dependencies + filesystem, frozen). A **container** is a running (or stopped) *instance* of that image, with a thin writable layer on top.
 
-ADD https://example.com/file.tar.gz /tmp/    # ← Can fetch URLs
-ADD archive.tar.gz /app/                      # ← Auto-extracts tar
+Analogy: an image is a **class**; a container is an **object** instantiated from it. You can start many containers from one image, each with independent state, just like many objects from one class.
+
+### 4.3 Layers and the Union Filesystem
+
+Every instruction in a Dockerfile that changes the filesystem creates a new, immutable **layer**. Layers stack using a union filesystem (commonly `overlay2` on Linux), and Docker caches each layer by hash.
+
+```mermaid
+flowchart BT
+    L1["Layer 1: FROM alpine:3.19"] --> L2["Layer 2: RUN apk add nginx"]
+    L2 --> L3["Layer 3: COPY conf/nginx.conf /etc/nginx/"]
+    L3 --> L4["Layer 4: COPY html/ /var/www/html/"]
+    L4 --> RW["Thin writable layer<br/>(created per container, discarded on rm)"]
 ```
 
-| Instruction | Use case |
-|-------------|----------|
-| `COPY` | Copy local files/dirs into the image. **Prefer this.** |
-| `ADD` | Like COPY, but can also fetch URLs and auto-extract archives. Use sparingly. |
+If you change the Dockerfile at layer 3, **layers 1 and 2 are reused from cache**, but layers 3 and 4 must rebuild. This is why **instruction order matters** for build speed (Chapter 5.8).
 
-> **Best practice:** Use `COPY` unless you specifically need `ADD`'s extra features. `COPY` is more explicit and predictable.
+### 4.4 Registries
 
-#### `CMD` vs `ENTRYPOINT`
+A **registry** stores and distributes images. **Docker Hub** is the default public registry. `docker pull nginx:1.25-alpine` fetches the `nginx` repository's `1.25-alpine` tag from Docker Hub. Inception explicitly forbids pulling pre-built service images (like `wordpress:latest` or `mariadb:latest`) — you must build your own from a base OS image like `debian:bookworm-slim` or `alpine:3.19`, which *is* allowed since it's just a base filesystem, not a pre-baked service.
 
-This is one of the most misunderstood parts of Dockerfiles.
+```bash
+docker pull alpine:3.19        # download an image
+docker build -t myimage:1.0 .   # build an image from a Dockerfile in the current dir
+docker push myrepo/myimage:1.0  # upload to a registry (needs docker login)
+docker images                    # list local images
+docker rmi <image>                # remove an image
+```
+
+### 4.5 Container Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Created: docker create
+    Created --> Running: docker start
+    Running --> Paused: docker pause
+    Paused --> Running: docker unpause
+    Running --> Stopped: docker stop (SIGTERM→SIGKILL)
+    Running --> Stopped: process exits
+    Stopped --> Running: docker start
+    Stopped --> [*]: docker rm
+```
+
+```bash
+docker run -d --name web nginx        # create + start, detached
+docker ps                              # list running containers
+docker ps -a                           # list all containers, incl. stopped
+docker stop web                        # SIGTERM, then SIGKILL after grace period
+docker start web                       # restart a stopped container
+docker restart web                     # stop + start
+docker rm web                          # remove a stopped container
+docker rm -f web                       # force remove (kills first)
+```
+
+### 4.6 Restart Policies
+
+| Policy | Behavior |
+|---|---|
+| `no` (default) | Never restart automatically |
+| `always` | Always restart, even after `docker stop` and daemon restart |
+| `unless-stopped` | Restart unless the user explicitly stopped it |
+| `on-failure[:max-retries]` | Restart only if the container exits with a non-zero code |
+
+Inception typically expects `restart: always` (or `unless-stopped`) on all three services in `docker-compose.yml`, so that if the 42 VM reboots, your infrastructure comes back up unattended — a very common evaluation check.
+
+**Evaluation questions — Docker fundamentals**
+
+19. What is the difference between an image and a container, in one sentence?
+20. Why does Docker use a layered filesystem instead of a flat one?
+21. What does `docker rmi` do vs `docker rm`?
+22. What is `containerd` and how does it relate to `dockerd`?
+23. Why is `restart: always` important for the Inception evaluation?
+24. Why does Inception forbid pulling `wordpress:latest` or `mariadb:latest` directly?
+
+---
+
+## 5. Dockerfile
+
+A **Dockerfile** is a declarative recipe: a sequence of instructions that Docker executes, in order, to produce an image, one layer per instruction (roughly).
+
+### 5.1 Every Instruction, Explained
+
+| Instruction | Purpose | Example |
+|---|---|---|
+| `FROM` | Sets the base image; must be the first instruction (except `ARG` before it) | `FROM debian:bookworm-slim` |
+| `RUN` | Executes a command **at build time**, result committed as a new layer | `RUN apt-get update && apt-get install -y nginx` |
+| `COPY` | Copies files from build context into the image | `COPY conf/nginx.conf /etc/nginx/nginx.conf` |
+| `ADD` | Like `COPY`, but also auto-extracts local tar archives and can fetch URLs | `ADD app.tar.gz /app/` |
+| `CMD` | Default command run **at container start**, overridable via `docker run <img> <cmd>` | `CMD ["nginx", "-g", "daemon off;"]` |
+| `ENTRYPOINT` | The fixed executable for the container; `CMD` becomes its default arguments | `ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]` |
+| `WORKDIR` | Sets the working directory for subsequent instructions | `WORKDIR /var/www/html` |
+| `USER` | Sets the user (and optionally group) for subsequent instructions and at runtime | `USER www-data` |
+| `ENV` | Sets a persistent environment variable, available at build and run time | `ENV PHP_FPM_PORT=9000` |
+| `ARG` | Defines a build-time-only variable, not available at runtime unless passed to `ENV` | `ARG PHP_VERSION=8.2` |
+| `EXPOSE` | Documents which port(s) the container listens on (does **not** publish them) | `EXPOSE 443` |
+| `VOLUME` | Marks a path as a mount point for persistent/external storage | `VOLUME /var/lib/mysql` |
+| `HEALTHCHECK` | Defines a command Docker runs periodically to determine container health | `HEALTHCHECK CMD curl -f http://localhost/ \|\| exit 1` |
+| `LABEL` | Attaches arbitrary metadata (key-value) to the image | `LABEL maintainer="you@student.42.fr"` |
+
+### 5.2 `CMD` vs `ENTRYPOINT` — the instruction everyone confuses
 
 ```dockerfile
-# CMD — default command, can be overridden at runtime
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]
-
-# ENTRYPOINT — always runs, even if you pass arguments
-ENTRYPOINT ["nginx"]
-CMD ["-g", "daemon off;"]   # These become default args to ENTRYPOINT
-
-# Shell form vs Exec form
-CMD nginx -g "daemon off;"         # Shell form (spawns /bin/sh -c)
-CMD ["nginx", "-g", "daemon off;"] # Exec form (runs directly, PREFERRED)
 ```
 
-**The exec form (`["cmd", "arg"]`) is strongly preferred** because:
-- Signals (like `SIGTERM` from `docker stop`) go directly to your process
-- In shell form, signals go to `sh`, not your app — the app may not shut down cleanly
+At runtime this becomes: `/usr/local/bin/entrypoint.sh nginx -g "daemon off;"` — `CMD`'s contents are passed as **arguments** to `ENTRYPOINT`. This is the standard Inception pattern: `ENTRYPOINT` is a small setup script (fix permissions, wait for the DB, generate configs from env vars), and it finishes by `exec`-ing into `CMD`, which becomes the real PID 1 (Chapter 16).
 
+| | Overridable via `docker run img <args>`? | Typical use |
+|---|---|---|
+| `CMD` alone | Yes, entirely replaced | Simple default command |
+| `ENTRYPOINT` alone | No (args appended, not replaced) | Force a fixed executable |
+| `ENTRYPOINT` + `CMD` | `CMD` part is overridable, `ENTRYPOINT` isn't | Setup script + default main process |
+
+> ⚠️ **Common mistake:** using shell form (`CMD nginx -g "daemon off;"`) instead of exec form (`CMD ["nginx", "-g", "daemon off;"]`). Shell form runs your command as a child of `/bin/sh -c`, so **`sh`, not `nginx`, becomes PID 1** — breaking signal handling (Chapter 16). Always prefer exec (JSON array) form for `CMD`/`ENTRYPOINT`.
+
+### 5.3 `COPY` vs `ADD`
+
+Use `COPY` unless you specifically need `ADD`'s auto-extraction of local archives. `ADD`'s URL-fetching feature is considered a legacy footgun (no cache invalidation, no cleanup, security risk) — evaluators may dock points if you use `ADD` for a plain file copy, since it signals you don't know the distinction.
+
+### 5.4 Build Context and `.dockerignore`
+
+```bash
+docker build -t inception/nginx -f srcs/requirements/nginx/Dockerfile srcs/requirements/nginx
 ```
-ENTRYPOINT + CMD combination:
-  ENTRYPOINT ["nginx"]  +  CMD ["-g", "daemon off;"]
-  → runs: nginx -g "daemon off;"
 
-  docker run myimage -g "daemon off; error_log /dev/stderr;"
-  → runs: nginx -g "daemon off; error_log /dev/stderr;"
-  (CMD is replaced by what you pass at runtime; ENTRYPOINT stays)
-```
+Everything in the build context directory is sent to the daemon before the build starts — including files you never `COPY`. A `.dockerignore` (same syntax as `.gitignore`) excludes junk (`.git`, `node_modules`, secrets) from that context, keeping builds fast and safe.
 
-#### `WORKDIR` — Set Working Directory
+### 5.5 Build Cache and Layer Ordering
+
+Docker caches each layer keyed by (instruction + its inputs). Put **rarely-changing instructions first**, **frequently-changing ones last**:
 
 ```dockerfile
-WORKDIR /var/www/html
-# All subsequent COPY, RUN, CMD instructions use this directory
-COPY index.php .    # Copies to /var/www/html/index.php
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y php8.2-fpm    # changes rarely → early
+COPY conf/php-fpm.conf /etc/php/8.2/fpm/php-fpm.conf     # changes sometimes → middle
+COPY src/ /var/www/html/                                   # changes often → late
 ```
 
-- Creates the directory if it doesn't exist
-- Better than `RUN cd /some/dir` (which doesn't persist between layers)
+If you reverse this — `COPY` your whole source tree before `RUN apt-get install` — *every* code change invalidates the cache for the (expensive) package install step too, making builds needlessly slow.
 
-#### `ENV` — Environment Variables
-
-```dockerfile
-ENV PHP_VERSION=8.1
-ENV WORDPRESS_DB_HOST=mariadb
-ENV APP_ENV=production
-```
-
-- Sets environment variables **in the image and all containers** created from it
-- Available at both build time and run time
-- Can be overridden at runtime: `docker run -e APP_ENV=staging myimage`
-
-#### `EXPOSE` — Document Ports
+### 5.6 A Real Example — NGINX Dockerfile for Inception
 
 ```dockerfile
-EXPOSE 443
-EXPOSE 9000   # PHP-FPM
-```
+FROM debian:bookworm-slim
 
-- **Does NOT publish the port** to the host
-- It's documentation: "this container listens on this port"
-- Actual publishing happens with `-p` flag or `ports:` in docker-compose
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends nginx openssl && \
+    rm -rf /var/lib/apt/lists/*
 
-#### `ARG` — Build-time Variables
-
-```dockerfile
-ARG DEBIAN_FRONTEND=noninteractive
-ARG USER=www-data
-
-RUN useradd -r $USER
-```
-
-- Only available **during the build** (unlike ENV, which persists in the image)
-- Pass with `docker build --build-arg USER=nginx .`
-- **Never use ARG for secrets** — they appear in image history
-
-#### `USER` — Set the Running User
-
-```dockerfile
-RUN useradd -r -s /bin/false www-data
-USER www-data
-```
-
-- All subsequent instructions and the container run as this user
-- **Critical for security:** never run containers as root
-
-#### `VOLUME` — Declare Mount Points
-
-```dockerfile
-VOLUME ["/var/lib/mysql"]
-VOLUME ["/var/www/html"]
-```
-
-- Declares that this path should be managed as a volume
-- Bypasses the union filesystem for performance
-- Data in these paths is NOT deleted when the container is removed (if using named volumes)
-
----
-
-### Layers and Caching — Understanding Build Performance
-
-Docker caches each layer. When you rebuild, it only rebuilds layers that changed.
-
-```dockerfile
-# ❌ BAD — COPY source before installing dependencies
-FROM debian:bullseye
-COPY . /app          ← Any source code change invalidates ALL layers below
-RUN apt-get update
-RUN apt-get install -y php
-
-# ✅ GOOD — Install dependencies first, copy source last
-FROM debian:bullseye
-RUN apt-get update && apt-get install -y php   ← This layer is cached!
-COPY . /app                                     ← Only this layer rebuilds on source change
-```
-
-**Cache invalidation rules:**
-- If a layer changes, **all subsequent layers** are invalidated
-- `COPY` and `ADD` invalidate the cache if the file contents changed
-- `RUN` invalidates if the instruction text changed
-
----
-
-### Real Examples
-
-#### NGINX Dockerfile
-
-```dockerfile
-FROM debian:bullseye
-
-RUN apt-get update && apt-get install -y \
-    nginx \
-    openssl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Generate self-signed SSL certificate
-RUN openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout /etc/ssl/private/nginx-selfsigned.key \
-    -out /etc/ssl/certs/nginx-selfsigned.crt \
-    -subj "/C=FR/ST=Paris/L=Paris/O=42/CN=login.42.fr"
+# Generate a self-signed TLS certificate at build time (Chapter 11)
+RUN mkdir -p /etc/nginx/ssl && \
+    openssl req -x509 -nodes -days 365 \
+      -newkey rsa:2048 \
+      -keyout /etc/nginx/ssl/inception.key \
+      -out /etc/nginx/ssl/inception.crt \
+      -subj "/C=MA/ST=Casablanca/L=Casablanca/O=42/CN=login.42.fr"
 
 COPY conf/nginx.conf /etc/nginx/nginx.conf
 
 EXPOSE 443
 
+# exec form → nginx becomes PID 1, receives signals correctly
 CMD ["nginx", "-g", "daemon off;"]
 ```
 
-#### WordPress + PHP-FPM Dockerfile
+> **Note:** baking the TLS cert at *build* time is common and accepted for Inception, since it's self-signed and only used internally. In real production you'd never bake secrets/certs into an image layer — you'd mount them at runtime (Chapter 9).
 
-```dockerfile
-FROM debian:bullseye
+### 5.7 Multi-stage builds (bonus knowledge)
 
-RUN apt-get update && apt-get install -y \
-    php7.4 \
-    php7.4-fpm \
-    php7.4-mysql \
-    php7.4-curl \
-    php7.4-gd \
-    php7.4-mbstring \
-    php7.4-xml \
-    wget \
-    && rm -rf /var/lib/apt/lists/*
+Not required by the base Inception subject, but worth understanding: a Dockerfile can have multiple `FROM` stages, where a later stage copies only the *build artifacts* from an earlier one, discarding build tools from the final image (smaller, more secure). Example: compiling `wp-cli` from source in a `builder` stage, then `COPY --from=builder` into the final slim image.
 
-# Download and install wp-cli
-RUN wget -q https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar \
-    -O /usr/local/bin/wp && chmod +x /usr/local/bin/wp
+### 5.8 Security in Dockerfiles
 
-WORKDIR /var/www/html
+- Prefer minimal base images (`alpine`, `debian-slim`) — smaller attack surface.
+- `rm -rf /var/lib/apt/lists/*` after `apt-get install` to shrink layers and avoid stale package indices.
+- Never `ENV MYSQL_ROOT_PASSWORD=hunter2` — secrets don't belong in image layers, ever (Chapter 9).
+- Pin versions (`FROM debian:bookworm-slim`, not `FROM debian:latest`) for reproducibility.
+- Drop to a non-root `USER` once setup requiring root is done.
 
-COPY conf/www.conf /etc/php/7.4/fpm/pool.d/www.conf
-COPY tools/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+**Evaluation questions — Dockerfile**
 
-EXPOSE 9000
-
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["php-fpm7.4", "-F"]
-```
-
-#### MariaDB Dockerfile
-
-```dockerfile
-FROM debian:bullseye
-
-RUN apt-get update && apt-get install -y \
-    mariadb-server \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY conf/my.cnf /etc/mysql/my.cnf
-COPY tools/init_db.sh /init_db.sh
-RUN chmod +x /init_db.sh
-
-VOLUME ["/var/lib/mysql"]
-
-EXPOSE 3306
-
-ENTRYPOINT ["/init_db.sh"]
-CMD ["mysqld_safe"]
-```
+25. What's the difference between `CMD` and `ENTRYPOINT`?
+26. Why does shell-form `CMD` break signal handling?
+27. Why should `COPY` be preferred over `ADD` in most cases?
+28. Explain build cache invalidation with a concrete example.
+29. Why is `FROM debian:latest` discouraged in a reproducible build?
+30. What does `EXPOSE` actually do — does it publish a port to the host?
+31. Why generate the self-signed cert in the Dockerfile instead of hardcoding a pre-made one in the repo?
+32. What's wrong with `ENV MYSQL_PASSWORD=root123` in a Dockerfile?
 
 ---
 
-### Best Practices Summary
+## 6. Docker Compose
 
-```
-✅ DO:
-  - Use specific base image tags (debian:bullseye, not debian:latest)
-  - Combine RUN commands to minimize layers
-  - Clean package caches in the same RUN layer
-  - Use exec form for CMD/ENTRYPOINT
-  - Copy only what you need (use .dockerignore)
-  - Run as non-root user
-  - Use multi-stage builds for compiled languages
+### 6.1 Why Compose Exists
 
-❌ DON'T:
-  - Use root user unnecessarily
-  - Store secrets in ENV or ARG
-  - Use latest tags in production
-  - Install unnecessary packages
-  - Leave build tools in final image
-```
+Running three interdependent containers by hand with `docker run` — remembering every flag, every network, every volume, every time — doesn't scale. **Docker Compose** lets you declare your entire multi-container application in one YAML file and bring it up/down with a single command.
 
----
-
-## 4. Docker Compose — Core of the Project
-
-Docker Compose lets you define and run **multi-container applications** using a YAML file. It's the core tool for Inception.
-
-### docker-compose.yml Structure
+### 6.2 Anatomy of `docker-compose.yml`
 
 ```yaml
-version: '3.8'                     # Compose file format version
+version: "3.8"
 
-services:                          # Define your containers here
-  nginx:                           # Service name (also used as hostname!)
-    build:
-      context: ./requirements/nginx
-      dockerfile: Dockerfile
-    image: nginx:inception         # Tag for the built image
-    container_name: nginx          # Optional: explicit container name
-    ports:
-      - "443:443"
+services:
+  mariadb:
+    build: ./requirements/mariadb
+    container_name: mariadb
+    image: mariadb-inception
+    restart: always
     networks:
-      - inception_network
+      - inception
     volumes:
-      - wordpress_data:/var/www/html
-    depends_on:
-      - wordpress
-    restart: unless-stopped        # Restart policy
+      - db_data:/var/lib/mysql
+    env_file:
+      - .env
+    expose:
+      - "3306"
 
   wordpress:
     build: ./requirements/wordpress
     container_name: wordpress
-    networks:
-      - inception_network
-    volumes:
-      - wordpress_data:/var/www/html
-    environment:
-      - WORDPRESS_DB_HOST=mariadb
-      - WORDPRESS_DB_NAME=${DB_NAME}
-      - WORDPRESS_DB_USER=${DB_USER}
-      - WORDPRESS_DB_PASSWORD=${DB_PASSWORD}
+    image: wordpress-inception
+    restart: always
     depends_on:
       - mariadb
-    restart: unless-stopped
-
-  mariadb:
-    build: ./requirements/mariadb
-    container_name: mariadb
     networks:
-      - inception_network
+      - inception
     volumes:
-      - mariadb_data:/var/lib/mysql
-    environment:
-      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
-      - MYSQL_DATABASE=${DB_NAME}
-      - MYSQL_USER=${DB_USER}
-      - MYSQL_PASSWORD=${DB_PASSWORD}
-    restart: unless-stopped
+      - wp_data:/var/www/html
+    env_file:
+      - .env
+    expose:
+      - "9000"
 
-volumes:                           # Declare named volumes
-  wordpress_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /home/${USER}/data/wordpress
+  nginx:
+    build: ./requirements/nginx
+    container_name: nginx
+    image: nginx-inception
+    restart: always
+    depends_on:
+      - wordpress
+    networks:
+      - inception
+    volumes:
+      - wp_data:/var/www/html
+    ports:
+      - "443:443"
+    env_file:
+      - .env
 
-  mariadb_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /home/${USER}/data/mariadb
-
-networks:                          # Declare custom networks
-  inception_network:
-    driver: bridge
-```
-
----
-
-### Services
-
-Each `service` is a container definition. Key fields:
-
-| Field | Description |
-|-------|-------------|
-| `build` | Path to Dockerfile or build context config |
-| `image` | Image name (used when building or pulling) |
-| `container_name` | Override the auto-generated container name |
-| `ports` | `"host:container"` port mapping |
-| `networks` | Which networks this service joins |
-| `volumes` | Volume mounts for this service |
-| `environment` | Environment variables |
-| `depends_on` | Start order (see limitations below) |
-| `restart` | Restart policy: `no`, `always`, `unless-stopped`, `on-failure` |
-
----
-
-### Volumes in Compose
-
-```yaml
-volumes:
-  wordpress_data:        # Named volume — Docker manages the location
-    driver: local
-
-  # OR bind to a specific host path:
-  mariadb_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /home/user/data/mariadb  # Host path
-```
-
-- **Named volumes:** Docker stores them under `/var/lib/docker/volumes/`
-- **Bind mounts:** Directly map a host path into the container
-- **Inception requirement:** You must use a specific host path, hence `driver_opts`
-
----
-
-### Networks in Compose
-
-```yaml
 networks:
-  inception_network:
-    driver: bridge    # Default driver, creates a virtual bridge
+  inception:
+    driver: bridge
+
+volumes:
+  db_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/${LOGIN}/data/db
+  wp_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/${LOGIN}/data/wordpress
 ```
 
-When services share a network, they can communicate using **service names as hostnames**. This is Docker's built-in DNS. See [Section 5](#5-networking) for deep explanation.
+### 6.3 Every Option, Explained
 
----
+| Key | Meaning |
+|---|---|
+| `build` | Path to the directory containing the `Dockerfile` to build this service's image |
+| `image` | Name/tag to assign the built (or pulled) image |
+| `container_name` | Fixed container name (otherwise Compose auto-generates one) |
+| `restart` | Restart policy (Chapter 4.6) |
+| `ports` | **Publishes** a port to the host: `"HOST:CONTAINER"`. Only NGINX should use this (443:443) |
+| `expose` | Documents a port as reachable **within the Docker network only** — no host publishing |
+| `volumes` | Mounts persistent storage. `named_volume:/container/path` or `./host/path:/container/path` |
+| `networks` | Attaches the service to one or more custom networks |
+| `depends_on` | Controls **startup order** only — it does *not* wait for the dependency to be "ready" (see note below) |
+| `environment` | Inline environment variables (`KEY=value` list or map) |
+| `env_file` | Loads environment variables from a file (typically `.env`, kept out of git) |
+| `secrets` | Mounts Docker Secrets as files inside the container (Chapter 9) |
+| `healthcheck` | Overrides/defines the container's health check |
 
-### `build` vs `image`
-
-```yaml
-# Option 1: build from Dockerfile
-build:
-  context: ./requirements/nginx    # Directory containing Dockerfile
-  dockerfile: Dockerfile           # Optional if named "Dockerfile"
-
-# Option 2: use existing image from registry
-image: nginx:alpine
-
-# Option 3: build AND tag the resulting image
-build: ./requirements/nginx
-image: nginx:inception   # The built image will be tagged with this name
-```
-
----
-
-### `depends_on` — Limitations (Very Important!)
+> ⚠️ **Critical misconception:** `depends_on` only waits for the dependency **container to start** (or, with `condition: service_healthy`, for its healthcheck to pass) — it does *not* guarantee the service *inside* is ready to accept connections. MariaDB's container can be "started" while `mysqld` is still initializing. This is exactly why Inception entrypoint scripts need explicit "wait for the port to be open" logic (Chapter 15), or why `depends_on` should be combined with a proper `healthcheck` + `condition: service_healthy`.
 
 ```yaml
 depends_on:
-  - mariadb
+  mariadb:
+    condition: service_healthy
 ```
 
-> ⚠️ **Critical misunderstanding:** `depends_on` only controls **start order**. It does **NOT** wait for the service to be *ready*.
+### 6.4 Bind Mounts vs Named Volumes vs tmpfs
 
-This means:
-- Docker starts `mariadb` before `wordpress`
-- But `wordpress` might try to connect to MariaDB **before MariaDB has finished initializing**
-- This causes "can't connect to database" errors
+| Type | Syntax | Managed by | Use case |
+|---|---|---|---|
+| Named volume | `db_data:/var/lib/mysql` | Docker | Persistent app data, portable across hosts |
+| Bind mount | `./conf:/etc/nginx/conf.d` | You (host path) | Config files, source code during dev |
+| Anonymous volume | `/var/lib/mysql` (no name) | Docker (auto-named) | Rarely intentional; usually a mistake |
+| tmpfs | `tmpfs: /run` | Docker (RAM-backed, non-persistent) | Fast, sensitive, ephemeral data |
 
-**The solution:** Handle this in your entrypoint script:
+Inception specifically requires **named volumes bind-mounted to a fixed host path** (`/home/<login>/data/...`) — a hybrid using `driver_opts` as shown above — so evaluators can verify persistence by inspecting `/home/<login>/data` directly on the host, not just via `docker volume inspect`.
+
+### 6.5 Compose Command Reference
 
 ```bash
-#!/bin/bash
-# WordPress entrypoint.sh
-
-# Wait for MariaDB to be ready
-until mysql -h mariadb -u "$WORDPRESS_DB_USER" -p"$WORDPRESS_DB_PASSWORD" -e "SELECT 1" &>/dev/null; do
-    echo "Waiting for MariaDB..."
-    sleep 2
-done
-
-echo "MariaDB is ready. Starting WordPress..."
-exec php-fpm7.4 -F
+docker compose up -d              # build (if needed) + start all services, detached
+docker compose up --build -d       # force rebuild images, then start
+docker compose down                 # stop and remove containers + default network
+docker compose down -v              # also remove named volumes (⚠️ deletes DB data!)
+docker compose ps                    # list this project's containers
+docker compose logs -f nginx          # follow logs for one service
+docker compose exec wordpress sh       # shell into a running container
+docker compose build --no-cache        # rebuild ignoring cache entirely
+docker compose config                    # validate & print the fully resolved config
 ```
+
+**Evaluation questions — Docker Compose**
+
+33. What's the real difference between `ports` and `expose`?
+34. Why doesn't `depends_on` alone guarantee a dependency is ready?
+35. What's the danger of `docker compose down -v`?
+36. Why does Inception require bind-mounted named volumes to `/home/<login>/data`?
+37. What's an anonymous volume and why is it usually accidental?
+38. How would you make WordPress wait until MariaDB is truly ready, not just started?
 
 ---
 
-### Environment Variables and `.env`
+## 7. Docker Networking
 
-Docker Compose automatically reads a `.env` file in the same directory:
+### 7.1 Network Drivers
+
+| Driver | Behavior |
+|---|---|
+| `bridge` | Default for user-defined networks; private internal network with NAT to the outside; containers can reach each other by name |
+| `host` | Container shares the host's network namespace directly — no isolation, no port mapping needed (and none possible) |
+| `none` | No networking at all — fully isolated |
+| `overlay` | Multi-host networking for Docker Swarm clusters (not needed for Inception) |
+
+Inception uses a single **user-defined bridge network** (`docker network create` or the `networks:` block in Compose). This is deliberately *not* the default bridge network (`docker0`), because user-defined bridges get **automatic DNS-based service discovery** — the default bridge does not.
+
+### 7.2 Service Discovery via Docker DNS
+
+When containers share a user-defined bridge network, Docker runs an internal DNS server (`127.0.0.11` inside each container) that resolves **service/container names to their internal IPs automatically**.
 
 ```bash
-# .env file (NEVER commit this to Git!)
-DB_NAME=wordpress
-DB_USER=wp_user
-DB_PASSWORD=secure_password_here
-DB_ROOT_PASSWORD=even_more_secure
-USER=yourlogin
-DOMAIN_NAME=yourlogin.42.fr
+# from inside the wordpress container:
+$ getent hosts mariadb
+172.18.0.2      mariadb
+$ ping -c 1 mariadb
+PING mariadb (172.18.0.2): 56 data bytes
 ```
 
-In `docker-compose.yml`, reference with `${VARIABLE}`:
+This is *why* your `wp-config.php` sets `DB_HOST` to `mariadb` (the Compose service name) and not an IP address — IPs are assigned dynamically and can change between restarts; names are stable.
 
-```yaml
-environment:
-  - MYSQL_DATABASE=${DB_NAME}
-  - MYSQL_USER=${DB_USER}
-  - MYSQL_PASSWORD=${DB_PASSWORD}
+```mermaid
+sequenceDiagram
+    participant WP as wordpress container
+    participant DNS as Docker embedded DNS (127.0.0.11)
+    participant DB as mariadb container
+    WP->>DNS: resolve "mariadb"
+    DNS-->>WP: 172.18.0.2
+    WP->>DB: TCP connect 172.18.0.2:3306
+    DB-->>WP: MySQL protocol handshake
 ```
 
-> **Security note:** Never hardcode passwords in `docker-compose.yml`. Always use `.env` files — and add `.env` to your `.gitignore`.
+### 7.3 Communication Between Containers — Reverse Proxy Pattern
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant N as nginx (443, TLS)
+    participant W as wordpress (php-fpm, 9000)
+    participant D as mariadb (3306)
+    B->>N: HTTPS GET /index.php
+    N->>N: TLS terminate, decrypt
+    N->>W: FastCGI request (plain, internal network)
+    W->>D: SQL query (plain, internal network)
+    D-->>W: result set
+    W-->>N: FastCGI response (HTML)
+    N-->>B: HTTPS response (re-encrypted)
+```
+
+NGINX is the only container that has a port published to the host (`443:443`). WordPress's `9000` and MariaDB's `3306` are only `expose`d — reachable from other containers on the same Docker network, invisible from outside the Docker host entirely. This is a textbook **reverse proxy** + **defense-in-depth** pattern: even if a firewall rule slipped, PHP-FPM and MariaDB are still not bound to any host-facing interface.
+
+**Evaluation questions — Docker Networking**
+
+39. Why does the default `bridge` network *not* get automatic DNS resolution but a user-defined one does?
+40. Why use the service name `mariadb` instead of a hard-coded IP in `wp-config.php`?
+41. What's the difference between `host` and `bridge` network drivers?
+42. Why is only NGINX's port published to the host?
+43. What tool would you use inside a container to verify DNS resolution of another service?
 
 ---
 
-## 5. Networking
+## 8. Volumes
 
-### Bridge Networks
+### 8.1 Why Persistence Matters
 
-When Docker is installed, it creates a default `bridge` network. Containers on the same bridge network can communicate with each other.
+A container's writable layer is **ephemeral** — `docker rm` destroys it permanently. WordPress's uploaded media, installed plugins, and `wp-config.php`; MariaDB's actual table data on disk — none of that can live only in the container's writable layer, or a single `docker compose down` / rebuild would wipe your entire site and database.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Host Machine                           │
-│                                                             │
-│  ┌───────────┐     ┌───────────┐     ┌───────────┐        │
-│  │  nginx    │     │ wordpress │     │  mariadb  │        │
-│  │172.18.0.2 │     │172.18.0.3 │     │172.18.0.4 │        │
-│  └─────┬─────┘     └─────┬─────┘     └─────┬─────┘        │
-│        └─────────────────┴─────────────────┘               │
-│                           │                                 │
-│               ┌───────────┴──────────┐                     │
-│               │    docker0 bridge    │                     │
-│               │    172.18.0.1/16     │                     │
-│               └───────────┬──────────┘                     │
-│                           │                                 │
-│               ┌───────────┴──────────┐                     │
-│               │      eth0 (NIC)      │ ← Physical/Virtual  │
-│               │      192.168.1.x     │   network interface  │
-│               └──────────────────────┘                     │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph Without Volumes
+        C1["Container (running)"] --> Data1[("Data in writable layer")]
+        C1 -.->|"docker rm"| Gone["❌ Data destroyed"]
+    end
+    subgraph With Volumes
+        C2["Container (running)"] --> Vol[("Named Volume<br/>lives independently")]
+        C2 -.->|"docker rm"| Vol
+        Vol --> Survives["✅ Data survives"]
+    end
 ```
 
-### Custom Networks vs Default
+### 8.2 Bind Mounts vs Named Volumes vs Anonymous Volumes (recap with detail)
 
-Inception uses a **custom bridge network** defined in `docker-compose.yml`. This is better than the default network because:
+- **Bind mount**: maps an exact host path into the container. Full control over location; you manage permissions/backups yourself. Fragile if the host path structure changes.
+- **Named volume**: Docker manages the storage location (`/var/lib/docker/volumes/<name>/_data` by default), referenced by a stable name. Portable between hosts, easy to back up with `docker run --volumes-from`.
+- **Anonymous volume**: created implicitly (e.g. by a Dockerfile `VOLUME` instruction with no explicit name given at `run`/`compose` time) — gets a random hash as its name, easy to lose track of, easy to accumulate as orphaned garbage (`docker volume prune`).
 
-1. Better **DNS resolution** (service names work as hostnames)
-2. Better **isolation** (containers not in your network can't reach yours)
-3. More **control** over IP ranges and configuration
+Inception's twist: it wants **named volumes whose data physically lives at a specific host path** (`/home/<login>/data/...`) so the grader can `ls` it directly — achieved via the `driver_opts` `bind` trick shown in Chapter 6.2. This is neither a pure bind mount nor a pure named volume; it's a named volume backed by a bind mount, giving you both Docker-native management (`docker volume ls`) and a guaranteed, inspectable host path.
 
-### How Docker DNS Works — Why "mariadb" Works as Hostname
-
-This is a magical-seeming feature that has a simple explanation.
-
-Docker runs an **embedded DNS server** at `127.0.0.11` inside each container. When a container tries to resolve `mariadb`:
-
-```
-Container (wordpress) wants to connect to "mariadb:3306"
-         │
-         ▼
-  DNS query: "mariadb" → 127.0.0.11 (Docker's embedded DNS)
-         │
-         ▼
-  Docker DNS checks: which container on this network has
-  the service name "mariadb"?
-         │
-         ▼
-  Returns: 172.18.0.4 (mariadb container's IP)
-         │
-         ▼
-  Connection: 172.18.0.4:3306 ✅
+```bash
+docker volume ls                     # list volumes
+docker volume inspect db_data         # show mountpoint, driver, options
+docker volume rm db_data               # delete a volume (data loss!)
+docker volume prune                     # delete all unused volumes
 ```
 
-This is why in WordPress config you write `DB_HOST=mariadb` — Docker resolves it to the MariaDB container's IP address automatically. The service name in `docker-compose.yml` **IS** the hostname.
+### 8.3 Why WordPress and MariaDB specifically need persistence
+
+- **MariaDB**: `/var/lib/mysql` contains the actual InnoDB/MyISAM table files. Lose this directory and you lose every post, user, and comment in the WordPress database — not recoverable without a backup.
+- **WordPress**: `/var/www/html` contains `wp-config.php`, the `wp-content/uploads` media library, and any installed themes/plugins. Without persisting this, every container rebuild would force you to reinstall WordPress and re-upload every image from scratch.
+
+> **Tip:** Both NGINX and WordPress mount the *same* `wp_data` volume at `/var/www/html`, because NGINX needs read access to static assets (images, CSS, JS) directly, while only `.php` requests get proxied to PHP-FPM (Chapter 10.5). This shared-volume pattern is standard for the NGINX+PHP-FPM split.
+
+**Evaluation questions — Volumes**
+
+44. What happens to a container's writable layer on `docker rm`?
+45. Why does Inception require volumes backed by a specific host path rather than plain named volumes?
+46. Why do both NGINX and WordPress mount the same volume?
+47. What's the risk of an anonymous volume accumulating over time?
+48. If you ran `docker compose down -v` by accident, what exactly would you lose?
 
 ---
 
-### Ports vs EXPOSE
+## 9. Environment Variables and Docker Secrets
 
-```yaml
-# EXPOSE — documentation only, does NOT publish to host
-EXPOSE 9000   # In Dockerfile — just says "I listen here"
+### 9.1 The Core Principle
 
-# ports — actually publishes to the host
-ports:
-  - "443:443"    # host_port:container_port
-  - "127.0.0.1:8080:80"   # bind to specific host IP
+> **Never hardcode credentials into an image, a Dockerfile, or a repository.** Anyone who obtains the image (or the git history) obtains the secret — permanently, since old layers/commits don't disappear just because you "fixed" it later.
 
-# expose (Compose) — similar to EXPOSE in Dockerfile
-expose:
-  - "9000"   # Available to other containers, not to host
+### 9.2 `.env` Files
+
+```bash
+# .env (must be .gitignore'd!)
+MYSQL_DATABASE=wordpress
+MYSQL_USER=wp_user
+MYSQL_PASSWORD=change_me_in_real_life
+MYSQL_ROOT_PASSWORD=another_strong_password
+WP_ADMIN_USER=admin_not_admin
+WP_ADMIN_PASSWORD=change_me_too
+DOMAIN_NAME=login.42.fr
 ```
 
-```
-┌─────────────────────────────────────────────────────┐
-│                 Host Machine                        │
-│                                                     │
-│  Browser → port 443 ─────┐                         │
-│                           ▼                         │
-│               ┌──────────────────┐                 │
-│               │  nginx container │                 │
-│               │  port 443 (TLS)  │                 │
-│               └────────┬─────────┘                 │
-│                         │ port 9000 (internal)      │
-│               ┌──────────────────┐                 │
-│               │ wordpress (PHP)  │  ← NOT exposed  │
-│               │  port 9000       │    to host!     │
-│               └────────┬─────────┘                 │
-│                         │ port 3306 (internal)      │
-│               ┌──────────────────┐                 │
-│               │ mariadb container│  ← NOT exposed  │
-│               │  port 3306       │    to host!     │
-│               └──────────────────┘                 │
-└─────────────────────────────────────────────────────┘
-```
+Compose automatically loads `.env` from the project root for variable substitution in `docker-compose.yml` (`${DOMAIN_NAME}`), and `env_file:` explicitly injects it into a container's environment at runtime. Both are **plaintext at rest** and **plaintext inside `docker inspect`** — meaning `.env` is *convenient*, not *secure*. That's the whole reason Docker Secrets exist.
 
-> **Security principle:** Only the NGINX container should be accessible from outside. MariaDB and WordPress should only be reachable by other containers on the internal network.
+### 9.3 Docker Secrets
 
----
-
-### Reverse Proxy Concept (NGINX)
-
-A reverse proxy sits **in front of** your application servers and handles incoming requests.
-
-```
-Internet Browser
-       │
-       │  HTTPS Request: https://login.42.fr/
-       ▼
-┌─────────────────────────────────┐
-│           NGINX                 │
-│  - Terminates TLS/SSL           │
-│  - Serves static files          │
-│  - Forwards PHP requests to     │
-│    WordPress (FastCGI/PHP-FPM)  │
-└───────────────┬─────────────────┘
-                │  FastCGI (port 9000)
-                ▼
-┌─────────────────────────────────┐
-│         WordPress/PHP-FPM       │
-│  - Processes PHP code           │
-│  - Queries database             │
-└───────────────┬─────────────────┘
-                │  MySQL protocol (port 3306)
-                ▼
-┌─────────────────────────────────┐
-│           MariaDB               │
-│  - Stores all data              │
-│  - Returns query results        │
-└─────────────────────────────────┘
-```
-
-Benefits of NGINX as reverse proxy:
-- **SSL termination:** Handles TLS once; backend communication is unencrypted (within trusted internal network)
-- **Single entry point:** Only port 443 is exposed to the internet
-- **Performance:** NGINX is extremely efficient at handling concurrent connections
-- **Static files:** NGINX serves CSS, images, JS directly without involving PHP
-
----
-
-## 6. Volumes and Persistence
-
-### Why Containers Are Ephemeral
-
-When a container is stopped and removed, **everything written to its writable layer is lost**. This is by design — containers are supposed to be stateless and reproducible.
-
-```
-Container created from Image
-        │
-        ▼
-┌───────────────────┐
-│  Container        │
-│  Writable Layer   │  ← You write a database row here
-│  (overlay fs)     │
-└──────────┬────────┘
-           │
-      docker rm
-           │
-           ▼
-   ❌ DATA IS GONE
-```
-
-For databases and user uploads, we need **persistence** beyond the container's lifecycle.
-
----
-
-### Named Volumes vs Bind Mounts
-
-```
-┌────────────────────────────────────────────────────────────┐
-│                                                            │
-│  NAMED VOLUME                    BIND MOUNT               │
-│                                                            │
-│  volumes:                        volumes:                  │
-│    mydata:                         - /host/path:/cnt/path  │
-│                                                            │
-│  Docker manages the location     You specify the location  │
-│  /var/lib/docker/volumes/...     on the host               │
-│                                                            │
-│  Good for:                       Good for:                 │
-│  - Production data               - Development (live code) │
-│  - Portability                   - Config files            │
-│  - Managed by Docker             - Specific host paths     │
-│                                  (required by Inception!)  │
-│                                                            │
-└────────────────────────────────────────────────────────────┘
-```
-
-### Inception Volume Configuration
-
-The project requires data to be stored at a specific host path:
-
-```yaml
-volumes:
-  wordpress_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /home/${USER}/data/wordpress   # Host path
-
-  mariadb_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /home/${USER}/data/mariadb     # Host path
-```
-
-This is technically a **bind mount** expressed as a named volume. The data physically lives at those host paths.
-
-### Data Flow
-
-```
-Container: mariadb
-  /var/lib/mysql/  ←──── Volume: mariadb_data ────→ Host: ~/data/mariadb/
-       │                        (bind)                       │
-       │                                                     │
-  INSERT INTO posts...                              Files on host disk:
-  writes to /var/lib/mysql/                         ibdata1, wordpress/...
-       │
-  docker rm mariadb  ←── Container deleted
-       │
-  docker run mariadb  ←── New container started
-       │
-  /var/lib/mysql/  ← Volume mounted again → same data! ✅
-```
-
----
-
-## 7. Inception Architecture
-
-### Full System Diagram
-
-```
-                            INTERNET
-                                │
-                                │ HTTPS (port 443)
-                                ▼
-                   ┌────────────────────────┐
-                   │        NGINX           │
-                   │                        │
-                   │  • TLS termination     │
-                   │    (self-signed cert)  │
-                   │  • SSL: TLSv1.2/1.3   │
-                   │  • Reverse proxy       │
-                   │  • Static files        │
-                   └──────────┬─────────────┘
-                              │
-                              │ FastCGI (port 9000)
-                              │ Internal Docker network
-                              ▼
-                   ┌────────────────────────┐
-                   │     WordPress          │
-                   │     (PHP-FPM)          │
-                   │                        │
-                   │  • Processes PHP       │
-                   │  • Serves WP pages     │
-                   │  • wp-config.php       │
-                   │    reads env vars      │
-                   └──────────┬─────────────┘
-                              │
-                              │ MySQL protocol (port 3306)
-                              │ Internal Docker network
-                              ▼
-                   ┌────────────────────────┐
-                   │       MariaDB          │
-                   │                        │
-                   │  • Stores all data     │
-                   │  • Users, posts, etc.  │
-                   │  • InnoDB engine       │
-                   └──────────┬─────────────┘
-                              │
-                              ▼
-                   ┌────────────────────────┐
-                   │  Volume: mariadb_data  │
-                   │  Host: ~/data/mariadb  │
-                   └────────────────────────┘
-
-
-Volume mounts:
-  wordpress_data (~/data/wordpress) ──→ nginx:/var/www/html
-                                    ──→ wordpress:/var/www/html
-```
-
-### Request Flow — Step by Step
-
-A user visits `https://yourlogin.42.fr/`:
-
-```
-1. Browser → DNS → resolves yourlogin.42.fr → Host machine IP
-2. Host machine → Docker port mapping → NGINX container port 443
-3. NGINX terminates TLS (decrypts HTTPS)
-4. NGINX reads the request path: /wp-login.php → PHP file
-5. NGINX sends FastCGI request to wordpress:9000
-6. PHP-FPM (WordPress) receives request, runs wp-login.php
-7. WordPress code connects to mariadb:3306
-8. MariaDB processes SQL query, returns data
-9. WordPress builds HTML response
-10. Response travels back: WordPress → NGINX → Browser (re-encrypted)
-```
-
----
-
-## 8. Security and Best Practices
-
-### No Root Containers
-
-Running containers as root is dangerous. If a vulnerability is exploited, the attacker has root inside the container — and potentially on the host if there are container escape vulnerabilities.
-
-```dockerfile
-# Create a dedicated user
-RUN addgroup --system --gid 1001 appgroup && \
-    adduser --system --uid 1001 --gid 1001 --no-create-home appuser
-
-# Switch to that user
-USER appuser
-
-# All subsequent commands and the container run as appuser
-CMD ["nginx", "-g", "daemon off;"]
-```
-
-> **Exception:** Some services like NGINX need to bind to port 443 (privileged port < 1024). The master process starts as root, then drops privileges for worker processes.
-
----
-
-### Secrets Management
-
-**Never** put secrets in:
-- Docker images (they are visible in image history with `docker history`)
-- `docker-compose.yml` (it's in version control)
-- Environment variables (visible with `docker inspect`)
-
-**Options for Inception:**
-1. **`.env` file** (minimum viable, kept outside git) — acceptable for 42 project
-2. **Docker Secrets** (proper production approach):
+Docker Secrets mount sensitive values as **files** inside `/run/secrets/<name>` in the container, rather than as environment variables — meaning they never appear in `docker inspect`, shell history, or `/proc/<pid>/environ`.
 
 ```yaml
 # docker-compose.yml
@@ -1138,1057 +915,332 @@ services:
   mariadb:
     secrets:
       - db_password
-    environment:
-      - MYSQL_PASSWORD_FILE=/run/secrets/db_password
+      - db_root_password
 
 secrets:
   db_password:
-    file: ./secrets/db_password.txt   # Content: just the password
+    file: ./secrets/db_password.txt
+  db_root_password:
+    file: ./secrets/db_root_password.txt
 ```
+
+Inside the container:
 
 ```bash
-# In container, read the secret
-DB_PASSWORD=$(cat /run/secrets/db_password)
+$ cat /run/secrets/db_password
+change_me_in_real_life
 ```
+
+Your entrypoint script then reads the file content into the actual variable the underlying software expects:
+
+```sh
+export MYSQL_PASSWORD="$(cat /run/secrets/db_password)"
+```
+
+> **Note:** Native Docker Secrets (the `secrets:` top-level key) technically require **Swarm mode** for full secret-management semantics (encryption at rest in the Swarm raft log). In plain `docker compose` (non-Swarm), the `secrets:` key still works and still mounts files at `/run/secrets/`, which is what 42's Inception subject explicitly asks for — the file-based *pattern*, even without full Swarm-grade encryption. Know this distinction; evaluators sometimes probe it.
+
+### 9.4 Why This Matters — Concretely
+
+| Approach | Visible in `docker inspect`? | Visible in image layers? | Visible in `docker history`? |
+|---|---|---|---|
+| `ENV PASSWORD=x` in Dockerfile | ✅ Yes | ✅ Yes, forever | ✅ Yes |
+| `environment:` in Compose | ✅ Yes | ❌ No | ❌ No |
+| `env_file: .env` | ✅ Yes (resolved values) | ❌ No | ❌ No |
+| Docker secret (`/run/secrets/`) | ❌ No | ❌ No | ❌ No |
+
+**Evaluation questions — Env vars & Secrets**
+
+49. Why is `ENV MYSQL_PASSWORD=x` in a Dockerfile worse than putting it in `.env`?
+50. What's the practical difference between an environment variable secret and a Docker Secret?
+51. Where do Docker Secrets get mounted inside a container?
+52. Why must `.env` be excluded from git?
+53. Does plain (non-Swarm) `docker compose` encrypt secrets at rest?
 
 ---
 
-### SSL Certificates
+## 10. NGINX
 
-Inception requires TLS 1.2 or 1.3 only (no older TLS/SSL versions).
+### 10.1 What is NGINX?
 
-```bash
-# Generate self-signed certificate
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout /etc/ssl/private/nginx.key \
-    -out /etc/ssl/certs/nginx.crt \
-    -subj "/C=FR/L=Paris/O=42Network/CN=${DOMAIN_NAME}"
-```
+NGINX is a high-performance **web server**, **reverse proxy**, and **load balancer**, built around an event-driven, asynchronous architecture (as opposed to Apache's traditional one-thread/process-per-connection model), which lets it handle tens of thousands of concurrent connections with low memory overhead.
 
-```nginx
-# nginx.conf SSL configuration
-server {
-    listen 443 ssl;
-    server_name yourlogin.42.fr;
+In Inception, NGINX plays exactly one role: it is the **single TLS-terminating entrypoint** to the whole stack. Nothing else is reachable from outside the Docker network.
 
-    ssl_certificate     /etc/ssl/certs/nginx.crt;
-    ssl_certificate_key /etc/ssl/private/nginx.key;
+### 10.2 Web Server vs Reverse Proxy
 
-    # Only allow TLSv1.2 and TLSv1.3 (no TLS 1.0, 1.1, no SSLv3)
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-CHACHA20-POLY1305;
-    ssl_prefer_server_ciphers off;
-}
-```
+- **Web server**: serves files directly from disk in response to HTTP requests (e.g., NGINX serving `style.css`).
+- **Reverse proxy**: receives a request on behalf of a backend, forwards it to that backend, and returns the backend's response to the client — the client never talks to the backend directly.
 
----
+NGINX does *both* in Inception: it serves static WordPress assets directly (fast, no PHP involved) and reverse-proxies `.php` requests to PHP-FPM via FastCGI.
 
-### Environment Variable Risks
+### 10.3 HTTPS, TLS, SSL — vocabulary
 
-```bash
-# ❌ DANGEROUS - visible in process list
-docker run -e DB_PASSWORD=secret myimage
+- **SSL (Secure Sockets Layer)**: the historical predecessor protocol, now considered insecure and deprecated.
+- **TLS (Transport Layer Security)**: the modern replacement (people still colloquially say "SSL" to mean TLS). Inception requires **TLSv1.2 and/or TLSv1.3 only** — older versions (SSLv3, TLSv1.0/1.1) must be disabled.
+- **HTTPS**: HTTP running over a TLS-encrypted connection.
+- **Certificate**: a signed document binding a public key to an identity (a domain name), used during the TLS handshake (Chapter 11).
 
-# ❌ DANGEROUS - visible in docker inspect
-environment:
-  - DB_PASSWORD=mysecretpassword
-
-# ✅ BETTER - use .env file (not in git)
-environment:
-  - DB_PASSWORD=${DB_PASSWORD}   # References .env
-
-# ✅ BEST - Docker secrets (not visible in inspect)
-secrets:
-  - db_password
-```
-
----
-
-## 9. Debugging and Troubleshooting
-
-### Essential Commands
-
-#### `docker logs` — View Container Output
-
-```bash
-# Show all logs
-docker logs nginx
-
-# Follow (stream) logs in real time
-docker logs -f wordpress
-
-# Show last 50 lines
-docker logs --tail 50 mariadb
-
-# Show logs with timestamps
-docker logs -t nginx
-
-# Show logs since a time
-docker logs --since 2024-01-01T00:00:00 mariadb
-```
-
-#### `docker exec` — Run Commands Inside a Running Container
-
-```bash
-# Open an interactive shell
-docker exec -it nginx bash
-docker exec -it nginx sh    # Alpine uses sh, not bash
-
-# Run a single command
-docker exec mariadb mysql -u root -p -e "SHOW DATABASES;"
-
-# Check nginx configuration
-docker exec nginx nginx -t
-
-# Check PHP-FPM is running
-docker exec wordpress ps aux | grep php
-
-# Check environment variables inside container
-docker exec wordpress env
-```
-
-#### `docker inspect` — Get Detailed Container Info
-
-```bash
-# Full JSON info
-docker inspect nginx
-
-# Get IP address of container
-docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' nginx
-
-# Get mounted volumes
-docker inspect -f '{{json .Mounts}}' wordpress | python3 -m json.tool
-
-# Get environment variables
-docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' mariadb
-```
-
-#### Other Useful Commands
-
-```bash
-# List containers (running)
-docker ps
-
-# List all containers (including stopped)
-docker ps -a
-
-# List images
-docker images
-
-# List volumes
-docker volume ls
-
-# List networks
-docker network ls
-
-# Show network details (containers connected, IPs)
-docker network inspect inception_inception_network
-
-# Show resource usage (CPU, memory, network)
-docker stats
-
-# Show disk usage
-docker system df
-```
-
----
-
-### Common Inception Errors and Fixes
-
-#### 1. WordPress can't connect to MariaDB
-
-```
-Error: "Error establishing a database connection"
-```
-
-**Diagnoses:**
-```bash
-# Is MariaDB running?
-docker ps | grep mariadb
-
-# Check MariaDB logs
-docker logs mariadb
-
-# Test connection from WordPress container
-docker exec -it wordpress bash
-mysql -h mariadb -u wp_user -p wordpress
-# If this works, the connection is fine — check wp-config.php
-```
-
-**Causes:**
-- MariaDB not fully initialized yet → add wait loop in entrypoint
-- Wrong hostname (not `mariadb` but something else)
-- Wrong password
-- User doesn't have permissions on the database
-
----
-
-#### 2. NGINX returns 502 Bad Gateway
-
-```
-502 Bad Gateway — nginx
-```
-
-**Meaning:** NGINX can't reach the WordPress FastCGI backend.
-
-```bash
-# Check if WordPress is running
-docker ps | grep wordpress
-docker logs wordpress
-
-# Check PHP-FPM is listening on port 9000
-docker exec wordpress ss -tlnp | grep 9000
-
-# Test FastCGI connection from NGINX container
-docker exec nginx nc -zv wordpress 9000
-```
-
-**Causes:**
-- WordPress/PHP-FPM container crashed
-- PHP-FPM not listening on `0.0.0.0:9000` (check `www.conf`)
-- `fastcgi_pass` in nginx.conf points to wrong hostname
-
----
-
-#### 3. Container keeps restarting
-
-```bash
-docker ps
-# STATUS: Restarting (1) 5 seconds ago
-```
-
-```bash
-# Check exit code
-docker inspect --format '{{.State.ExitCode}}' mariadb
-
-# Read the logs
-docker logs mariadb
-
-# Run interactively to debug
-docker run -it --entrypoint /bin/bash myimage:mariadb
-```
-
-**Causes:**
-- Entrypoint script fails (syntax error, missing file)
-- Permission error on volume mount
-- Service fails to start (config error)
-
----
-
-#### 4. Volume permissions denied
-
-```
-mkdir: cannot create directory '/var/lib/mysql': Permission denied
-```
-
-```bash
-# Check the host directory exists and has correct permissions
-ls -la ~/data/
-# Create it if needed:
-mkdir -p ~/data/wordpress ~/data/mariadb
-```
-
----
-
-#### 5. SSL/TLS handshake errors
-
-```bash
-# Test SSL from outside
-curl -kv https://localhost:443
-
-# Check certificate details
-docker exec nginx openssl x509 -in /etc/ssl/certs/nginx.crt -text -noout
-
-# Test specific TLS version
-curl -k --tlsv1.2 https://yourlogin.42.fr
-```
-
----
-
-## 10. Advanced Concepts — Low Level
-
-### How Containers Isolate Processes
-
-When Docker runs a container, it calls the Linux `clone()` syscall with special flags:
-
-```c
-// Simplified — what Docker does to create a container
-pid_t child = clone(
-    container_main,    // Function to run
-    stack_top,
-    CLONE_NEWPID |     // New PID namespace
-    CLONE_NEWNET |     // New network namespace
-    CLONE_NEWNS  |     // New mount namespace
-    CLONE_NEWUTS |     // New UTS (hostname) namespace
-    CLONE_NEWIPC |     // New IPC namespace
-    SIGCHLD,
-    &args
-);
-```
-
-Inside the new namespace, the process (e.g., nginx) has PID 1. It can't see any other processes on the system. It thinks it's alone.
-
----
-
-### Namespaces Deep Dive
-
-```
-Host process tree:
-  systemd (PID 1)
-    ├── dockerd (PID 847)
-    │     ├── [nginx container] ──── PID namespace: nginx = PID 1
-    │     │                                (host PID: 2341)
-    │     └── [mariadb container] ── PID namespace: mysqld = PID 1
-    │                                        (host PID: 2567)
-    └── sshd (PID 1123)
-```
-
-```bash
-# See the host PID of a container's PID 1
-docker inspect --format '{{.State.Pid}}' nginx
-# Returns e.g. 2341
-
-# From the host, you can see it:
-ps aux | grep 2341   # Shows nginx
-
-# From inside the container:
-docker exec nginx ps aux
-# Shows only nginx's processes, starting from PID 1
-```
-
-**Network Namespace:**
-```bash
-# Each container has its own network interfaces
-docker exec nginx ip addr show
-# eth0 with container IP — completely separate from host's eth0
-
-# On host, Docker creates veth pairs:
-ip link show
-# Shows: vethXXXXXX@docker0 — one end in container, one in host bridge
-```
-
----
-
-### cgroups Resource Limits
-
-```bash
-# On the host, find your container's cgroup:
-cat /proc/$(docker inspect --format '{{.State.Pid}}' nginx)/cgroup
-
-# View memory limit (0 = unlimited)
-cat /sys/fs/cgroup/memory/docker/<container-id>/memory.limit_in_bytes
-
-# Set limits in docker-compose.yml:
-services:
-  mariadb:
-    mem_limit: 512m
-    cpus: "0.5"
-```
-
----
-
-### How Docker Networking Works Internally (iptables)
-
-When you run `docker-compose up`, Docker creates iptables rules to enable networking:
-
-```bash
-# View Docker's iptables rules
-sudo iptables -L -n -v
-sudo iptables -t nat -L -n -v
-```
-
-```
-Docker networking internals:
-
-1. Creates a bridge: docker0 (or custom bridge for Compose networks)
-   ip link add docker0 type bridge
-
-2. Assigns IP range: 172.18.0.0/16 to the bridge
-   ip addr add 172.18.0.1/16 dev docker0
-
-3. For each container, creates a veth pair:
-   ip link add veth0 type veth peer name veth1
-   # veth0 goes into container (renamed to eth0)
-   # veth1 stays on host, attached to docker0 bridge
-
-4. NAT for outbound traffic (containers reaching internet):
-   iptables -t nat -A POSTROUTING -s 172.18.0.0/16 ! -o docker0 -j MASQUERADE
-
-5. Port publishing (443:443):
-   iptables -t nat -A DOCKER -p tcp --dport 443 -j DNAT --to-destination 172.18.0.2:443
-```
-
----
-
-## 11. Evaluation Questions — 42 Style
-
-### Q: What is the difference between a VM and a container?
-
-**A:** A **Virtual Machine** emulates complete hardware and runs a full operating system with its own kernel. It provides strong isolation but is resource-heavy (GB of RAM, minutes to boot). A **container** shares the host's kernel and uses Linux namespaces and cgroups for process-level isolation. It's lightweight (MB of RAM, milliseconds to start) but all containers share the same kernel. VMs are isolated at the hardware level; containers at the process level.
-
----
-
-### Q: What is a Docker image?
-
-**A:** A Docker image is an **immutable, layered filesystem snapshot** that contains everything needed to run an application: the OS libraries, dependencies, application code, and configuration. Images are built from Dockerfiles. Each instruction creates a read-only layer. Images are stored in registries (like Docker Hub). When you run an image, Docker adds a writable container layer on top. The image itself is never modified.
-
----
-
-### Q: What is a Dockerfile and what do the main instructions do?
-
-**A:** A Dockerfile is a text file containing sequential instructions to build a Docker image. Key instructions: `FROM` sets the base image; `RUN` executes commands during build; `COPY` copies files from host to image; `CMD` defines the default command to run; `ENTRYPOINT` defines the executable that always runs; `WORKDIR` sets the working directory; `ENV` sets environment variables; `EXPOSE` documents which ports the container listens on; `USER` sets the user for subsequent commands.
-
----
-
-### Q: How does networking work in Docker Compose?
-
-**A:** Docker Compose creates a **custom bridge network** for all services. Each service gets a network interface with an IP address. Docker runs an **embedded DNS server** at `127.0.0.11` inside each container. When a container queries a hostname (like `mariadb`), Docker's DNS resolves it to the corresponding container's IP address. This is why services can connect to each other using service names as hostnames. Traffic between containers stays on the internal bridge network and never leaves the host.
-
----
-
-### Q: Why do we need volumes? What happens without them?
-
-**A:** Without volumes, all data written inside a container is stored in its **writable layer** (part of the union filesystem). When the container is deleted (e.g., `docker rm`), this layer is destroyed and all data is lost permanently. Volumes provide **persistence** by storing data outside the container's lifecycle — either in a Docker-managed location or a specific host path. MariaDB data (databases, tables) and WordPress uploads must persist across container restarts, which is why volumes are essential.
-
----
-
-### Q: How do the three services communicate?
-
-**A:** All three services are on the same Docker network (`inception_network`). The browser connects to NGINX on port 443 (the only port exposed to the outside). NGINX handles TLS termination and forwards PHP requests to WordPress using the **FastCGI protocol** on port 9000 (WordPress's PHP-FPM server). WordPress connects to MariaDB on port 3306 using the MySQL protocol. Docker's DNS resolves `wordpress` and `mariadb` to the correct container IPs. MariaDB and WordPress are not exposed to the host — they're only accessible within the Docker network.
-
----
-
-### Q: What is PHP-FPM and why does WordPress use it?
-
-**A:** PHP-FPM (FastCGI Process Manager) is a high-performance PHP interpreter. It runs as a separate service, manages a pool of PHP worker processes, and listens for FastCGI connections. NGINX itself cannot execute PHP code — it only serves static files efficiently. For dynamic PHP pages, NGINX passes the request to PHP-FPM via the FastCGI protocol, PHP-FPM executes the PHP code, and returns HTML to NGINX. This separation is more efficient than older methods like `mod_php`.
-
----
-
-### Q: What is TLS and why must we use TLSv1.2/1.3 only?
-
-**A:** TLS (Transport Layer Security) encrypts the communication between the browser and NGINX, preventing eavesdropping and tampering. Older versions (SSL 3.0, TLS 1.0, TLS 1.1) have known vulnerabilities (POODLE, BEAST, CRIME) and are considered insecure. TLSv1.2 and TLSv1.3 use modern cipher suites and are currently considered secure. The project requires disabling older protocols to follow current security best practices.
-
----
-
-### Q: What is `docker-compose up --build` vs `docker-compose up`?
-
-**A:** `docker-compose up` starts services using existing images if available. `docker-compose up --build` forces a rebuild of all images before starting, even if they already exist. Use `--build` when you've changed a Dockerfile or the code copied into an image. Without `--build`, you might run outdated images without realizing it.
-
----
-
-### Q: What is the role of NGINX in this project?
-
-**A:** NGINX serves three roles: (1) **Reverse proxy** — it's the single entry point; it receives all HTTPS requests and forwards them to the appropriate backend. (2) **TLS terminator** — it handles SSL/TLS encryption/decryption so backend services don't need to. (3) **Static file server** — it serves CSS, JavaScript, and image files directly (very efficiently) without involving PHP.
-
----
-
-## 12. Full Example Project
-
-### Directory Structure
-
-```
-inception/
-├── Makefile
-├── .env                          ← NOT in git
-├── .gitignore
-├── srcs/
-│   ├── docker-compose.yml
-│   └── requirements/
-│       ├── nginx/
-│       │   ├── Dockerfile
-│       │   └── conf/
-│       │       └── nginx.conf
-│       ├── wordpress/
-│       │   ├── Dockerfile
-│       │   ├── conf/
-│       │   │   └── www.conf
-│       │   └── tools/
-│       │       └── entrypoint.sh
-│       └── mariadb/
-│           ├── Dockerfile
-│           ├── conf/
-│           │   └── my.cnf
-│           └── tools/
-│               └── init_db.sh
-```
-
----
-
-### `docker-compose.yml`
-
-```yaml
-version: '3.8'
-
-services:
-
-  nginx:
-    build:
-      context: ./requirements/nginx
-      dockerfile: Dockerfile
-    image: nginx:inception
-    container_name: nginx
-    ports:
-      - "443:443"
-    networks:
-      - inception_network
-    volumes:
-      - wordpress_data:/var/www/html
-    depends_on:
-      - wordpress
-    restart: unless-stopped
-
-  wordpress:
-    build:
-      context: ./requirements/wordpress
-      dockerfile: Dockerfile
-    image: wordpress:inception
-    container_name: wordpress
-    networks:
-      - inception_network
-    volumes:
-      - wordpress_data:/var/www/html
-    environment:
-      - WORDPRESS_DB_HOST=mariadb
-      - WORDPRESS_DB_NAME=${DB_NAME}
-      - WORDPRESS_DB_USER=${DB_USER}
-      - WORDPRESS_DB_PASSWORD=${DB_PASSWORD}
-      - WORDPRESS_ADMIN_USER=${WP_ADMIN_USER}
-      - WORDPRESS_ADMIN_PASSWORD=${WP_ADMIN_PASSWORD}
-      - WORDPRESS_ADMIN_EMAIL=${WP_ADMIN_EMAIL}
-      - WORDPRESS_URL=https://${DOMAIN_NAME}
-      - DOMAIN_NAME=${DOMAIN_NAME}
-    depends_on:
-      - mariadb
-    restart: unless-stopped
-
-  mariadb:
-    build:
-      context: ./requirements/mariadb
-      dockerfile: Dockerfile
-    image: mariadb:inception
-    container_name: mariadb
-    networks:
-      - inception_network
-    volumes:
-      - mariadb_data:/var/lib/mysql
-    environment:
-      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
-      - MYSQL_DATABASE=${DB_NAME}
-      - MYSQL_USER=${DB_USER}
-      - MYSQL_PASSWORD=${DB_PASSWORD}
-    restart: unless-stopped
-
-volumes:
-  wordpress_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /home/${USER}/data/wordpress
-
-  mariadb_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /home/${USER}/data/mariadb
-
-networks:
-  inception_network:
-    driver: bridge
-```
-
----
-
-### `.env`
-
-```bash
-# Domain
-DOMAIN_NAME=yourlogin.42.fr
-USER=yourlogin
-
-# MariaDB
-DB_NAME=wordpress
-DB_USER=wp_user
-DB_PASSWORD=wp_secure_password_123
-DB_ROOT_PASSWORD=root_secure_password_456
-
-# WordPress admin
-WP_ADMIN_USER=admin
-WP_ADMIN_PASSWORD=admin_secure_password_789
-WP_ADMIN_EMAIL=admin@yourlogin.42.fr
-
-# WordPress second user
-WP_USER=editor
-WP_USER_PASSWORD=editor_password_321
-WP_USER_EMAIL=editor@yourlogin.42.fr
-```
-
----
-
-### NGINX Dockerfile
-
-```dockerfile
-FROM debian:bullseye
-
-RUN apt-get update && apt-get install -y \
-    nginx \
-    openssl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Generate SSL certificate at build time
-# Note: In production, this should be a real certificate
-RUN mkdir -p /etc/ssl/private /etc/ssl/certs && \
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout /etc/ssl/private/nginx-selfsigned.key \
-        -out /etc/ssl/certs/nginx-selfsigned.crt \
-        -subj "/C=FR/ST=IDF/L=Paris/O=42/OU=Student/CN=yourlogin.42.fr"
-
-COPY conf/nginx.conf /etc/nginx/nginx.conf
-
-EXPOSE 443
-
-# Nginx must run in foreground (not as daemon) for Docker
-CMD ["nginx", "-g", "daemon off;"]
-```
-
-### NGINX Configuration (`conf/nginx.conf`)
+### 10.4 A Full Annotated `nginx.conf` for Inception
 
 ```nginx
 events {
-    worker_connections 1024;
+    worker_connections 1024;   # max simultaneous connections per worker process
 }
 
 http {
-    include       /etc/nginx/mime.types;
+    include       mime.types;   # maps file extensions to Content-Type headers
     default_type  application/octet-stream;
-    sendfile      on;
 
     server {
-        listen 443 ssl;
-        server_name yourlogin.42.fr;
+        listen 443 ssl;                  # listen on 443, TLS required
+        server_name login.42.fr;         # matched against the Host header / SNI
 
-        # SSL Configuration
-        ssl_certificate     /etc/ssl/certs/nginx-selfsigned.crt;
-        ssl_certificate_key /etc/ssl/private/nginx-selfsigned.key;
-        ssl_protocols       TLSv1.2 TLSv1.3;
-        ssl_ciphers         ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-CHACHA20-POLY1305;
+        ssl_certificate     /etc/nginx/ssl/inception.crt;
+        ssl_certificate_key /etc/nginx/ssl/inception.key;
+        ssl_protocols       TLSv1.2 TLSv1.3;   # explicitly forbid old/insecure TLS
 
-        root /var/www/html;
+        root /var/www/html;      # document root — must match the WordPress volume mount
         index index.php index.html;
 
-        # Try files, then pass to WordPress
         location / {
-            try_files $uri $uri/ /index.php?$args;
+            try_files $uri $uri/ /index.php?$args;   # WordPress "pretty permalinks" support
         }
 
-        # Pass PHP files to PHP-FPM (WordPress container)
         location ~ \.php$ {
-            try_files $uri =404;
-            fastcgi_pass wordpress:9000;
+            fastcgi_pass wordpress:9000;              # forward to PHP-FPM by service name
             fastcgi_index index.php;
-            include fastcgi_params;
             fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-            fastcgi_param PATH_INFO $fastcgi_path_info;
-        }
-
-        # Deny access to .htaccess
-        location ~ /\.ht {
-            deny all;
+            include fastcgi_params;
         }
     }
 }
 ```
 
+### 10.5 Directive-by-Directive
+
+| Directive | Meaning |
+|---|---|
+| `listen 443 ssl` | Bind to port 443, require TLS negotiation on this socket |
+| `server_name` | Virtual host matching — which `Host:` header this block answers |
+| `ssl_certificate` / `ssl_certificate_key` | Paths to the public cert and private key used for the TLS handshake |
+| `ssl_protocols` | Whitelist of allowed TLS versions — **security-critical**, must exclude SSLv3/TLSv1.0/1.1 |
+| `root` | Filesystem base path NGINX serves files from |
+| `try_files` | Attempts each path in order; falls back to the last (here, routes unknown paths into `index.php` for WordPress's router) |
+| `location ~ \.php$` | A regex location block matching any URI ending in `.php` |
+| `fastcgi_pass` | Forwards the request to a FastCGI backend (here, PHP-FPM's TCP socket) — this is `proxy_pass`'s cousin, specific to the FastCGI protocol rather than plain HTTP |
+| `fastcgi_param SCRIPT_FILENAME` | Tells PHP-FPM exactly which `.php` file to execute (PHP-FPM cannot infer this on its own) |
+| `include fastcgi_params` | Pulls in NGINX's standard set of FastCGI parameter mappings |
+
+> ⚠️ **Common mistake:** forgetting `ssl_protocols TLSv1.2 TLSv1.3;` — NGINX's compiled-in defaults may include older, insecure protocol versions depending on the build. Inception's evaluation sheet explicitly checks this with `nmap --script ssl-enum-ciphers` or similar. Always set it explicitly.
+
+**Evaluation questions — NGINX**
+
+54. What is the difference between a web server and a reverse proxy?
+55. Why must NGINX be the *only* container with a published host port?
+56. What does `fastcgi_pass wordpress:9000` actually do?
+57. Why must `SCRIPT_FILENAME` be passed explicitly to PHP-FPM?
+58. Why does Inception forbid TLSv1.0/1.1?
+59. What's the difference between `proxy_pass` and `fastcgi_pass`?
+
 ---
 
-### WordPress Dockerfile
+## 11. TLS and OpenSSL
 
-```dockerfile
-FROM debian:bullseye
+### 11.1 The Problem TLS Solves
 
-RUN apt-get update && apt-get install -y \
-    php7.4 \
-    php7.4-fpm \
-    php7.4-mysql \
-    php7.4-curl \
-    php7.4-gd \
-    php7.4-intl \
-    php7.4-mbstring \
-    php7.4-soap \
-    php7.4-xml \
-    php7.4-xmlrpc \
-    php7.4-zip \
-    wget \
-    default-mysql-client \
-    && rm -rf /var/lib/apt/lists/*
+Plain HTTP sends everything — including passwords, cookies, page content — as cleartext over the network. Anyone on the path (a shared Wi-Fi network, a compromised router, an ISP) can read or modify it. TLS provides three guarantees:
 
-# Install WP-CLI
-RUN wget -q https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar \
-        -O /usr/local/bin/wp \
-    && chmod +x /usr/local/bin/wp
+1. **Confidentiality** — traffic is encrypted, unreadable to eavesdroppers.
+2. **Integrity** — traffic cannot be tampered with undetected.
+3. **Authentication** — the client can verify it's really talking to the server it intended to (via the certificate).
 
-# PHP-FPM configuration
-COPY conf/www.conf /etc/php/7.4/fpm/pool.d/www.conf
+### 11.2 Public-Key (Asymmetric) Cryptography, briefly
 
-# Entrypoint script
-COPY tools/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+Each party has a **key pair**: a **public key** (shareable) and a **private key** (secret, never transmitted). Data encrypted with the public key can only be decrypted with the matching private key, and vice versa for signatures. TLS uses this to safely negotiate a temporary **symmetric session key** (fast) without ever transmitting it in the clear — asymmetric crypto is computationally expensive, so it's only used briefly during the handshake, not for the whole session.
 
-# Create www-data user directories
-RUN mkdir -p /var/www/html && chown -R www-data:www-data /var/www/html
+### 11.3 Certificates and Self-Signing
 
-WORKDIR /var/www/html
-
-EXPOSE 9000
-
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["php-fpm7.4", "-F"]
-```
-
-### WordPress Entrypoint (`tools/entrypoint.sh`)
+A **certificate** binds a public key to an identity, normally **signed by a trusted Certificate Authority (CA)** so browsers trust it automatically (Let's Encrypt, DigiCert...). A **self-signed certificate** is signed by its own private key instead of a CA — meaning browsers will show a trust warning, because there's no chain of trust back to a known authority. That's expected and accepted for Inception: you're not deploying to the real internet, and 42 subjects explicitly permit/require self-signed certs for `login.42.fr`.
 
 ```bash
-#!/bin/bash
-set -e
-
-# Wait for MariaDB to be ready
-echo "Waiting for MariaDB..."
-until mysql -h mariadb \
-            -u "${WORDPRESS_DB_USER}" \
-            -p"${WORDPRESS_DB_PASSWORD}" \
-            "${WORDPRESS_DB_NAME}" \
-            -e "SELECT 1;" &>/dev/null; do
-    echo "MariaDB not ready yet. Retrying in 2s..."
-    sleep 2
-done
-echo "MariaDB is ready!"
-
-# Check if WordPress is already installed
-if [ ! -f /var/www/html/wp-config.php ]; then
-    echo "Downloading WordPress..."
-    wp core download \
-        --path=/var/www/html \
-        --locale=en_US \
-        --allow-root
-
-    echo "Configuring WordPress..."
-    wp config create \
-        --path=/var/www/html \
-        --dbname="${WORDPRESS_DB_NAME}" \
-        --dbuser="${WORDPRESS_DB_USER}" \
-        --dbpass="${WORDPRESS_DB_PASSWORD}" \
-        --dbhost=mariadb \
-        --allow-root
-
-    echo "Installing WordPress..."
-    wp core install \
-        --path=/var/www/html \
-        --url="https://${DOMAIN_NAME}" \
-        --title="Inception" \
-        --admin_user="${WORDPRESS_ADMIN_USER}" \
-        --admin_password="${WORDPRESS_ADMIN_PASSWORD}" \
-        --admin_email="${WORDPRESS_ADMIN_EMAIL}" \
-        --allow-root
-
-    echo "Creating second user..."
-    wp user create \
-        "${WP_USER}" \
-        "${WP_USER_EMAIL}" \
-        --role=editor \
-        --user_pass="${WP_USER_PASSWORD}" \
-        --allow-root
-
-    chown -R www-data:www-data /var/www/html
-    echo "WordPress installed successfully!"
-else
-    echo "WordPress already installed. Skipping setup."
-fi
-
-# Execute the CMD
-exec "$@"
+openssl req -x509 -nodes -days 365 \
+  -newkey rsa:2048 \
+  -keyout inception.key \
+  -out inception.crt \
+  -subj "/C=MA/ST=Casablanca/L=Casablanca/O=42/CN=login.42.fr"
 ```
 
-### WordPress PHP-FPM Config (`conf/www.conf`)
+| Flag | Meaning |
+|---|---|
+| `req -x509` | Generate a self-signed X.509 certificate directly (instead of a CSR for a CA to sign) |
+| `-nodes` | "No DES" — don't encrypt the private key with a passphrase (needed for unattended container startup) |
+| `-days 365` | Validity period |
+| `-newkey rsa:2048` | Generate a new 2048-bit RSA key pair alongside the cert |
+| `-keyout` / `-out` | Output paths for the private key and the certificate |
+| `-subj` | Certificate subject fields (Country, State, Locality, Organization, Common Name) — `CN` **must match** the domain NGINX serves |
+
+### 11.4 The TLS Handshake (simplified, TLS 1.2-style for teaching clarity)
+
+```mermaid
+sequenceDiagram
+    participant C as Client (Browser)
+    participant S as Server (NGINX)
+    C->>S: ClientHello (supported TLS versions, cipher suites, random_C)
+    S->>C: ServerHello (chosen version/cipher, random_S) + Certificate
+    C->>C: Verify certificate (or accept self-signed with a warning)
+    C->>S: Key exchange material (encrypted with server's public key)
+    Note over C,S: Both derive the same symmetric session key
+    C->>S: Finished (encrypted)
+    S->>C: Finished (encrypted)
+    Note over C,S: 🔒 Encrypted application data (HTTP) flows from here on
+```
+
+> **Tip:** TLS 1.3 streamlines this to a single round trip in most cases (1-RTT handshake) — faster than TLS 1.2's two round trips — one more reason to prefer allowing TLS 1.3.
+
+**Evaluation questions — TLS/OpenSSL**
+
+60. What three guarantees does TLS provide?
+61. Why is a self-signed certificate acceptable for Inception but not for a real production public site?
+62. What does the `-nodes` flag do and why is it necessary here?
+63. Why must the certificate's `CN` match the domain name NGINX serves?
+64. Why does TLS use asymmetric crypto only briefly, then switch to symmetric encryption?
+
+---
+
+## 12. PHP and PHP-FPM
+
+### 12.1 PHP
+
+PHP is a server-side scripting language designed for web development: a script runs on the server, generates HTML (or JSON, etc.), and the result is sent to the browser. WordPress is written entirely in PHP.
+
+### 12.2 CGI → FastCGI → PHP-FPM
+
+- **CGI (Common Gateway Interface)**: the original standard for a web server to run an external program per request. Extremely wasteful — a *new process* was spawned for *every single request*, then destroyed.
+- **FastCGI**: an evolution of CGI that keeps worker processes alive between requests, communicating with the web server over a persistent socket (TCP or Unix socket) instead of spawning fresh processes each time — dramatically faster.
+- **PHP-FPM (FastCGI Process Manager)**: PHP's official FastCGI implementation. It manages a **pool of PHP worker processes**, handling process spawning, recycling, and request routing, so NGINX never has to execute PHP itself (NGINX has no PHP interpreter built in, by design — this separation of concerns is intentional and is the whole reason the two are separate containers in Inception).
+
+```mermaid
+flowchart LR
+    NGINX["NGINX<br/>(handles HTTP/TLS,<br/>static files)"] -- "FastCGI protocol<br/>over TCP :9000" --> Master["PHP-FPM master process"]
+    Master --> W1["worker 1"]
+    Master --> W2["worker 2"]
+    Master --> W3["worker N"]
+```
+
+### 12.3 PHP-FPM Pool Configuration
 
 ```ini
+; www.conf
 [www]
-user = www-data
+listen = 9000                    ; TCP port PHP-FPM listens on (0.0.0.0:9000 inside the container)
+user = www-data                  ; run workers as an unprivileged user, not root
 group = www-data
-
-; Listen on all interfaces on port 9000 (required for Docker networking)
-listen = 0.0.0.0:9000
-
-pm = dynamic
-pm.max_children = 5
-pm.start_servers = 2
+pm = dynamic                     ; process manager mode: dynamic|static|ondemand
+pm.max_children = 5              ; hard cap on simultaneous worker processes
+pm.start_servers = 2             ; workers spawned at startup
 pm.min_spare_servers = 1
 pm.max_spare_servers = 3
 ```
 
----
+| Directive | Meaning |
+|---|---|
+| `listen` | Where PHP-FPM accepts FastCGI connections — a TCP port (needed since NGINX is in a *different container*, so a Unix socket file wouldn't be shareable without extra volume tricks) |
+| `pm = dynamic` | Worker count scales between `min_spare_servers` and `max_spare_servers` based on load |
+| `pm.max_children` | Absolute ceiling — prevents unbounded memory usage under load |
+| `user` / `group` | **Never run PHP-FPM workers as root** — least privilege (Chapter 20) |
 
-### MariaDB Dockerfile
+> ⚠️ **Common mistake:** using `listen = /run/php/php-fpm.sock` (a Unix socket) — this works fine when NGINX and PHP-FPM are on the *same* filesystem, but **fails silently or with "502 Bad Gateway"** across separate containers unless that socket path is on a shared volume. In Inception's split-container setup, always use a **TCP socket** (`listen = 9000`) instead.
 
-```dockerfile
-FROM debian:bullseye
+**Evaluation questions — PHP-FPM**
 
-RUN apt-get update && apt-get install -y \
-    mariadb-server \
-    && rm -rf /var/lib/apt/lists/*
-
-# MariaDB configuration
-COPY conf/my.cnf /etc/mysql/my.cnf
-
-# Database initialization script
-COPY tools/init_db.sh /init_db.sh
-RUN chmod +x /init_db.sh
-
-# Ensure data directory exists and has correct permissions
-RUN mkdir -p /var/lib/mysql /run/mysqld \
-    && chown -R mysql:mysql /var/lib/mysql /run/mysqld
-
-VOLUME ["/var/lib/mysql"]
-
-EXPOSE 3306
-
-ENTRYPOINT ["/init_db.sh"]
-```
-
-### MariaDB Config (`conf/my.cnf`)
-
-```ini
-[mysqld]
-# Listen on all interfaces (required for Docker networking)
-bind-address = 0.0.0.0
-
-# Data directory
-datadir = /var/lib/mysql
-
-# Socket
-socket = /run/mysqld/mysqld.sock
-
-# Basic settings
-user = mysql
-port = 3306
-
-[client]
-socket = /run/mysqld/mysqld.sock
-```
-
-### MariaDB Init Script (`tools/init_db.sh`)
-
-```bash
-#!/bin/bash
-set -e
-
-# Initialize MariaDB data directory if empty
-if [ ! -d /var/lib/mysql/mysql ]; then
-    echo "Initializing MariaDB data directory..."
-    mysql_install_db --user=mysql --datadir=/var/lib/mysql --skip-test-db
-fi
-
-# Start MariaDB temporarily for setup
-mysqld_safe --skip-networking &
-MYSQL_PID=$!
-
-# Wait for MariaDB to start
-echo "Waiting for MariaDB to start..."
-until mysql -u root -e "SELECT 1" &>/dev/null; do
-    sleep 1
-done
-echo "MariaDB started."
-
-# Create database and user if not exists
-mysql -u root <<EOF
-CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\`;
-CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
-GRANT ALL PRIVILEGES ON \`${MYSQL_DATABASE}\`.* TO '${MYSQL_USER}'@'%';
-ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';
-FLUSH PRIVILEGES;
-EOF
-
-echo "Database setup complete."
-
-# Stop the temporary mysqld
-kill "$MYSQL_PID"
-wait "$MYSQL_PID" 2>/dev/null || true
-
-echo "Starting MariaDB in foreground..."
-exec mysqld_safe
-```
+65. Why doesn't NGINX just execute PHP scripts directly?
+66. What problem did FastCGI solve compared to plain CGI?
+67. Why must PHP-FPM listen on a TCP port rather than a Unix socket in Inception's architecture?
+68. What does `pm.max_children` protect against?
+69. Why should PHP-FPM workers run as `www-data`, not `root`?
 
 ---
 
-## 13. Makefile Explanation
+## 13. WordPress
 
-The Makefile provides convenient shortcuts for managing your Docker Compose project.
+### 13.1 Architecture
 
-```makefile
-# Variables
-COMPOSE_FILE = srcs/docker-compose.yml
-DATA_DIR_WP  = /home/$(shell whoami)/data/wordpress
-DATA_DIR_DB  = /home/$(shell whoami)/data/mariadb
+WordPress is a PHP + MySQL/MariaDB content management system (CMS). At a high level:
 
-# Default target — what runs when you just type "make"
-all: setup up
-
-# Create host data directories (required before first run)
-setup:
-	@echo "Creating data directories..."
-	@mkdir -p $(DATA_DIR_WP) $(DATA_DIR_DB)
-
-# Start all services (build if needed, then start in background)
-up: setup
-	@docker-compose -f $(COMPOSE_FILE) up -d --build
-
-# Stop and remove containers (keep volumes)
-down:
-	@docker-compose -f $(COMPOSE_FILE) down
-
-# Stop all services without removing containers
-stop:
-	@docker-compose -f $(COMPOSE_FILE) stop
-
-# Start previously stopped services
-start:
-	@docker-compose -f $(COMPOSE_FILE) start
-
-# Show running containers
-ps:
-	@docker-compose -f $(COMPOSE_FILE) ps
-
-# Show logs (all services)
-logs:
-	@docker-compose -f $(COMPOSE_FILE) logs -f
-
-# Show logs for a specific service: make log SERVICE=nginx
-log:
-	@docker-compose -f $(COMPOSE_FILE) logs -f $(SERVICE)
-
-# Rebuild images without using cache
-rebuild:
-	@docker-compose -f $(COMPOSE_FILE) build --no-cache
-	@docker-compose -f $(COMPOSE_FILE) up -d
-
-# Full cleanup: stop, remove containers, images, volumes, and data
-clean: down
-	@docker-compose -f $(COMPOSE_FILE) down --rmi all -v
-	@docker system prune -af
-
-# Nuclear option: remove EVERYTHING including host data
-fclean: clean
-	@sudo rm -rf $(DATA_DIR_WP) $(DATA_DIR_DB)
-	@docker volume prune -f
-	@docker network prune -f
-
-# Full rebuild from scratch
-re: fclean all
-
-.PHONY: all setup up down stop start ps logs log rebuild clean fclean re
+```mermaid
+flowchart TB
+    Req["HTTP request"] --> Index["index.php (front controller)"]
+    Index --> Core["WordPress core (wp-includes/, wp-admin/)"]
+    Core --> Config["wp-config.php<br/>(DB credentials, table prefix, keys)"]
+    Core --> DB[("MariaDB<br/>wp_posts, wp_users,<br/>wp_options, ...")]
+    Core --> Theme["Active theme (templates)"]
+    Core --> Plugins["Active plugins (hooks/filters)"]
+    Core --> Uploads["wp-content/uploads/<br/>(media library, persisted)"]
 ```
 
-### How `make` Works
+### 13.2 `wp-config.php`, Line by Line (the parts that matter for Inception)
 
-When you run `make`, Make reads `Makefile` and executes the recipe for the **first target** (or the target you specify).
+```php
+<?php
+define( 'DB_NAME', getenv('MYSQL_DATABASE') );
+define( 'DB_USER', getenv('MYSQL_USER') );
+define( 'DB_PASSWORD', getenv('MYSQL_PASSWORD') );
+define( 'DB_HOST', 'mariadb' );          // Docker Compose service name, NOT localhost!
+define( 'DB_CHARSET', 'utf8' );
+define( 'DB_COLLATE', '' );
 
-```
-make             → runs 'all' target → runs 'setup' then 'up'
-make up          → runs 'up' target
-make clean       → runs 'clean' target
-make re          → runs 'fclean' then 'all' (full rebuild)
-make log SERVICE=nginx  → shows nginx logs
-```
+$table_prefix = 'wp_';
 
-The `@` prefix silences the command itself from being printed:
-```makefile
-up:
-	@docker-compose up    # ← @ suppresses "docker-compose up" from printing
-	docker-compose up     # ← Without @, the command itself is printed, then executed
+require_once ABSPATH . 'wp-settings.php';
 ```
 
-`.PHONY` tells Make these are not filenames but always-run targets:
-```makefile
-.PHONY: all up down clean fclean re
-# Without .PHONY, if a file named "clean" existed, "make clean" might not run
+- `DB_HOST` **must** be the Compose service name (`mariadb`), resolved via Docker's internal DNS (Chapter 7.2) — not `localhost`, not `127.0.0.1`.
+- Credentials pulled from environment variables (`getenv()`), never hardcoded — same principle as Chapter 9.
+- `$table_prefix` lets multiple WordPress installs share one database safely (not usually relevant for Inception's single-site setup, but evaluators may ask about it).
+
+### 13.3 Installing WordPress Without the Browser Wizard — `wp-cli`
+
+42's subject requires a **fully automated, non-interactive** setup — no clicking through the famous 5-minute browser install. The standard tool for this is **`wp-cli`**, the official WordPress command-line interface.
+
+```sh
+# inside the wordpress container's entrypoint script:
+wp core download --allow-root
+
+wp config create \
+  --dbname="$MYSQL_DATABASE" \
+  --dbuser="$MYSQL_USER" \
+  --dbpass="$MYSQL_PASSWORD" \
+  --dbhost="mariadb" \
+  --allow-root
+
+wp core install \
+  --url="$DOMAIN_NAME" \
+  --title="Inception" \
+  --admin_user="$WP_ADMIN_USER" \
+  --admin_password="$WP_ADMIN_PASSWORD" \
+  --admin_email="$WP_ADMIN_EMAIL" \
+  --skip-email \
+  --allow-root
+
+# Inception commonly also requires a second, non-administrator user:
+wp user create "$WP_USER" "$WP_USER_EMAIL" \
+  --role=author \
+  --user_pass="$WP_USER_PASSWORD" \
+  --allow-root
 ```
 
----
+> **Note:** `--allow-root` is required because the entrypoint script typically runs as root during setup (to fix permissions, etc.) before optionally dropping privileges for the long-running PHP-FPM process itself.
 
-## 14. Conclusion
+> ⚠️ **Common mistake:** the 42 subject usually forbids the WordPress admin username from containing "admin", "administrator", etc. (case-insensitive) as a security-awareness exercise — evaluators check this manually. Pick something like `boss_wp` for the admin account.
 
-### What You Should Have Learned
+### 13.4 Persistence Recap
 
-By completing this project and deeply understanding this README, you now know:
+`/var/www/html` (WordPress core files, `wp-config.php`, `wp-content/uploads`) must live on the `wp_data` named volume (Chapter 8) — otherwise every rebuild forces a full reinstall and loses all uploaded media.
 
-**Docker Fundamentals:**
-- Containers are not VMs — they are isolated Linux processes using namespaces and cgroups
-- Images are immutable, layered filesystem snapshots
-- Containers add a writable layer on top of the image, which is ephemeral
-- The Union File System (OverlayFS) makes layers efficient through copy-on-write
+**Evaluation questions — WordPress**
 
-**Dockerfile Mastery:**
-- Every instruction creates a layer — design them for cache efficiency
-- The difference between `CMD` and `ENTRYPOINT`, and why exec form matters
-- Security: never run as root, clean caches, use multi-stage builds
-
-**Docker Compose:**
-- How to orchestrate multi-service applications declaratively
-- `depends_on` only controls order, not readiness — handle it in entrypoints
-- Named volumes, bind mounts, and how to persist data
-
-**Networking:**
-- Docker's bridge network and embedded DNS resolver
-- Why service names resolve as hostnames
-- Reverse proxy architecture: NGINX → WordPress → MariaDB
-- The difference between `ports`, `expose`, and internal communication
-
-**Security:**
-- Non-root containers, secret management, TLS configuration
-- Environment variable risks and how to mitigate them
-
-**Debugging:**
-- `docker logs`, `docker exec`, `docker inspect` are your best friends
-- How to diagnose connection issues, restart loops, and permission errors
-
-**Linux Internals:**
-- Namespaces (pid, net, mnt, uts) provide isolation
-- cgroups control resource limits
-- iptables rules power Docker's networking under the hood
-
----
-
-### The DevOps Mindset
-
-Inception is not just about making three services talk to each other. It's about learning to think like a DevOps engineer:
-
-- **Infrastructure as Code:** Your entire infrastructure is defined in files (`docker-compose.yml`, `Dockerfiles`, `Makefile`) — reproducible on any machine
-- **Isolation:** Each service has a single responsibility; they communicate through defined interfaces
-- **Persistence vs Ephemerality:** Know what needs to survive container restarts and what doesn't
-- **Least Privilege:** Every service runs with the minimum permissions it needs
-- **Observability:** Know how to inspect and debug your running system
-
----
-
-### What to Explore Next
-
-Once you've mastered Inception, these are the natural next steps in the DevOps/infrastructure journey:
-
-| Topic | Tools |
-|-------|-------|
-| Container orchestration | Kubernetes (k8s), Docker Swarm |
-| CI/CD pipelines | GitHub Actions, GitLab CI, Jenkins |
-| Monitoring | Prometheus, Grafana, ELK Stack |
-| Service mesh | Istio, Linkerd |
-| Infrastructure as Code | Terraform, Ansible |
-| Cloud containers | AWS ECS/EKS, Google Cloud Run, Azure AKS |
-
----
-
-> **Final word from your mentor:** The point of Inception is not to have NGINX, WordPress, and MariaDB running. The point is to understand *why* and *how* they run — to read an error message and know exactly where in the chain something broke, to look at a `docker-compose.yml` and visualize the network topology in your head. If you've built this project and can answer every question in Section 11 without looking, you've genuinely learned something that will serve you throughout your career.
-
----
-
-*Made with ❤️ for 42 students by a fellow engineer who once stared at `502 Bad Gateway` for four hours.*
-
-*If this helped you, share it with your cluster mates.*
+70. Why must `DB_HOST` in `wp-config.php` be `mariadb`, not `localhost`?
+71. What is `wp-cli` and why does Inception require it instead of the browser install wizard?
+72. Why must the WordPress admin account not have "admin" in its username?
+73. What's the role of `wp-content/uploads` and why must it be persisted?
+74. What does `wp core install --skip-email` avoid, and why is that necessary in this environment?
