@@ -1,4 +1,4 @@
-# 🐳 Inception — The Complete DevOps Handbook
+# 🐳 Inception 
 
 > *"You do not understand a system until you can rebuild it from nothing, explain every line, and defend every decision."*
 
@@ -8,7 +8,7 @@ This is not project documentation. This is a textbook. Read it top to bottom onc
 
 ---
 
-## 📚 Table of Contents
+## Table of Contents
 
 1. [Introduction](#1-introduction)
 2. [Linux Fundamentals](#2-linux-fundamentals)
