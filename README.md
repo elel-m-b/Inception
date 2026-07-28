@@ -4,7 +4,7 @@
 
 A complete, from-first-principles guide to the 42 School **Inception** project — covering Linux, virtualization, Docker, Docker Compose, networking, NGINX, TLS, PHP-FPM, WordPress, MariaDB, shell scripting, process management, security, and debugging.
 
-This is not project documentation. This is a textbook. Read it top to bottom once, then use it as a reference while you build.
+
 
 ---
 
