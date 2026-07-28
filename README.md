@@ -1,7 +1,5 @@
 This project has been created as part of the 42 curriculum by elel-m-b
 
-# Inception
-
 ## Description
 
 **Inception** is a system administration and DevOps project from the 42 curriculum that introduces containerization using Docker.
