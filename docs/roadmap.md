@@ -30,48 +30,94 @@ Imagine you build an app on your laptop with Python 3.11, a specific version of 
 > **Note**
 > The core problem Docker solves is **environment inconsistency**: the gap between "developed here" and "runs there."
 
-### Traditional Deployment
+## Traditional Deployment
 
-In the traditional model, you install your application directly onto a server's operating system, alongside every other application on that machine.
+Before containers existed, applications were installed **directly on the server's operating system**.
 
+Every application shares the same OS, system libraries, CPU, memory, and disk.
+
+```mermaid
+flowchart TB
+    Server["🖥️ Physical Server"]
+
+    subgraph OS["Operating System"]
+        AppA["Application A<br/>Python 2"]
+        AppB["Application B<br/>Python 3"]
+        Lib["Shared System Libraries"]
+    end
+
+    Server --> OS
+    AppA --> Lib
+    AppB --> Lib
 ```
-┌─────────────────────────────┐
-│         Physical Server      │
-│  ┌───────────┐ ┌───────────┐ │
-│  │  App A    │ │  App B    │ │
-│  │ (Python2) │ │ (Python3) │ │
-│  └─────┬─────┘ └─────┬─────┘ │
-│        └──────┬──────┘       │
-│         Shared OS Libraries  │
-└─────────────────────────────┘
-```
 
-**Problems with this approach:**
+### Why is this a problem?
 
 | Problem | Explanation |
-|---|---|
-| Dependency conflicts | App A needs Python 2, App B needs Python 3 — both fight over the same system |
-| No isolation | A crash or resource hog in App A can affect App B |
-| Hard to reproduce | Setting up a new server means manually reinstalling everything, hoping you remember every step |
-| Scaling is slow | Provisioning a whole new server takes minutes to hours |
+|----------|-------------|
+| ❌ Dependency conflicts | One application may require Python 2 while another requires Python 3. Since both use the same operating system, their dependencies can conflict. |
+| ❌ No isolation | If one application crashes or consumes all CPU or memory, other applications on the same server are affected. |
+| ❌ Difficult deployments | Recreating another server requires manually installing every package, dependency, and configuration again. |
+| ❌ Slow scaling | Adding another server means provisioning an entire operating system before deploying the application. |
 
-### Virtual Machines (The First Fix)
+---
 
-Virtual Machines (VMs) solve isolation by virtualizing an entire computer — including its own kernel — on top of your physical hardware, using a **hypervisor** (e.g., VirtualBox, VMware, KVM).
+## Virtual Machines (The First Solution)
 
+To solve these issues, virtualization introduced **Virtual Machines (VMs).**
+
+A **hypervisor** creates multiple virtual computers on one physical server.
+
+Each VM contains:
+
+- Its own **Guest Operating System**
+- Its own kernel
+- Its own libraries
+- Its own application
+
+This provides strong isolation because each application runs inside its own operating system.
+
+```mermaid
+flowchart TB
+    Server["🖥️ Physical Server"]
+
+    Hypervisor["Hypervisor"]
+
+    subgraph VM1["Virtual Machine 1"]
+        OS1["Guest OS"]
+        App1["Application A"]
+    end
+
+    subgraph VM2["Virtual Machine 2"]
+        OS2["Guest OS"]
+        App2["Application B"]
+    end
+
+    Server --> Hypervisor
+    Hypervisor --> VM1
+    Hypervisor --> VM2
+
+    OS1 --> App1
+    OS2 --> App2
 ```
-┌───────────────────────────────────────────┐
-│               Physical Server               │
-│  ┌───────────────────────────────────────┐ │
-│  │              Hypervisor                │ │
-│  │  ┌───────────────┐ ┌───────────────┐   │ │
-│  │  │     VM 1      │ │     VM 2      │   │ │
-│  │  │  Guest OS Full│ │  Guest OS Full│   │ │
-│  │  │  App A        │ │  App B        │   │ │
-│  │  └───────────────┘ └───────────────┘   │ │
-│  └───────────────────────────────────────┘ │
-└───────────────────────────────────────────┘
-```
+
+### Advantages of Virtual Machines
+
+| Advantage | Explanation |
+|-----------|-------------|
+| ✅ Isolation | Each VM has its own operating system, so applications cannot interfere with each other. |
+| ✅ Different operating systems | One VM can run Ubuntu while another runs Windows or Fedora on the same physical server. |
+| ✅ Better security | Problems inside one VM usually do not affect other VMs. |
+| ✅ Easy snapshots | Entire virtual machines can be backed up, restored, or cloned. |
+
+### Limitations of Virtual Machines
+
+| Limitation | Explanation |
+|------------|-------------|
+| ❌ Heavy | Every VM includes a complete operating system, consuming significant disk space and RAM. |
+| ❌ Slow startup | Booting a VM is similar to starting a physical computer and can take several minutes. |
+| ❌ Resource overhead | Running multiple kernels wastes CPU and memory resources. |
+| ❌ Lower density | A server can host fewer VMs compared to containers because each VM carries an entire OS. |
 
 Each VM ships with a **full guest operating system** — its own kernel, its own drivers, its own everything.
 
@@ -81,39 +127,132 @@ Each VM ships with a **full guest operating system** — its own kernel, its own
 - Running 10 VMs means running 10 full kernels — huge RAM/CPU overhead.
 
 This is real isolation, but it's expensive. You're not just isolating an *application*, you're duplicating an *entire computer*.
+---
 
-### Containers (The Docker Fix)
+## Containers (The Docker Solution)
 
-Containers take a different approach: instead of virtualizing hardware, they virtualize **at the operating system level**. All containers on a host share the **same host kernel**, but each one has its own isolated filesystem, process tree, and network stack.
+Virtual Machines solved isolation, but they introduced another problem: **every VM contains a complete operating system**, making them heavy and slow to start.
 
+Docker takes a different approach.
+
+Instead of virtualizing the hardware, Docker **virtualizes the operating system**.
+
+All containers share the **Host Operating System's kernel**, while each container keeps its own isolated:
+
+- Filesystem
+- Processes
+- Network
+- Environment variables
+- Installed libraries
+
+This makes containers lightweight, fast, and portable.
+
+```mermaid
+flowchart TB
+    Server["🖥️ Physical Server"]
+
+    HostOS["Host Operating System<br/>(One Shared Kernel)"]
+
+    Docker["Docker Engine"]
+
+    subgraph C1["Container 1"]
+        App1["Application A"]
+        Lib1["Libraries"]
+    end
+
+    subgraph C2["Container 2"]
+        App2["Application B"]
+        Lib2["Libraries"]
+    end
+
+    Server --> HostOS
+    HostOS --> Docker
+
+    Docker --> C1
+    Docker --> C2
+
+    App1 --> Lib1
+    App2 --> Lib2
 ```
-┌───────────────────────────────────────────┐
-│               Physical Server               │
-│  ┌───────────────────────────────────────┐ │
-│  │            Host Operating System        │ │
-│  │                (One Kernel)              │ │
-│  │  ┌───────────────────────────────────┐ │ │
-│  │  │           Docker Engine            │ │ │
-│  │  │  ┌───────────┐   ┌───────────┐    │ │ │
-│  │  │  │Container 1│   │Container 2│    │ │ │
-│  │  │  │  App A    │   │  App B    │    │ │ │
-│  │  │  │  libs     │   │  libs     │    │ │ │
-│  │  │  └───────────┘   └───────────┘    │ │ │
-│  │  └───────────────────────────────────┘ │ │
-│  └───────────────────────────────────────┘ │
-└───────────────────────────────────────────┘
+
+### Why are containers so fast?
+
+Unlike Virtual Machines, containers **do not boot a new operating system**.
+
+Instead, they reuse the host's kernel.
+
+```text
+Virtual Machine
+────────────────────────────────
+App
+Libraries
+Guest Operating System
+Kernel
+────────────────────────────────
+
+Container
+────────────────────────────────
+App
+Libraries
+────────────────────────────────
+Shared Host Kernel
 ```
 
-**Containers vs Virtual Machines**
+Because there is no extra operating system:
 
-| Aspect | Virtual Machine | Container |
-|---|---|---|
-| What's virtualized | Hardware | Operating System (process-level) |
-| Kernel | Each VM has its own | Shared with host |
-| Boot time | Seconds to minutes | Milliseconds to seconds |
-| Size | Gigabytes | Megabytes (often) |
-| Isolation strength | Very strong (separate kernel) | Strong, but shares host kernel |
-| Density (per host) | Tens of VMs | Hundreds of containers |
+- Containers start in **seconds (often milliseconds)**.
+- They consume much less RAM.
+- Hundreds of containers can run on a single server.
+- Building and deploying applications becomes much faster.
+
+---
+
+## Advantages of Containers
+
+| Advantage | Explanation |
+|-----------|-------------|
+| ✅ Lightweight | Containers package only the application and its dependencies, not an entire operating system. |
+| ✅ Fast startup | Most containers start in a few seconds or less because there is no OS boot process. |
+| ✅ Portable | A container behaves the same on any machine running Docker. |
+| ✅ Efficient | Sharing the host kernel allows many more containers than virtual machines on the same hardware. |
+| ✅ Isolated | Each container has its own filesystem, processes, networking, and environment. |
+| ✅ Easy deployment | Applications can be packaged once and run consistently across development, testing, and production environments. |
+
+---
+
+## Containers vs Virtual Machines
+
+```mermaid
+flowchart LR
+
+subgraph VM["Virtual Machine"]
+    A1["Application"]
+    A2["Libraries"]
+    A3["Guest Operating System"]
+    A4["Kernel"]
+end
+
+subgraph Container["Container"]
+    B1["Application"]
+    B2["Libraries"]
+end
+
+Host["Shared Host Kernel"]
+
+VM --> Host
+Container --> Host
+```
+
+| Virtual Machine | Container |
+|-----------------|-----------|
+| Includes a full Guest OS | Shares the Host OS kernel |
+| Large (GBs) | Small (MBs) |
+| Boots in minutes | Starts in seconds or milliseconds |
+| High memory usage | Low memory usage |
+| Strong isolation | Lightweight isolation |
+| Lower density | High container density |
+
+> **Key idea:** A container is **not a tiny virtual machine**. It is an isolated process running on the **same operating system kernel** as the host.
 
 > **Tip**
 > Think of a VM as building a **whole new house** for every tenant. A container is more like an **apartment building**: one foundation (the kernel), but every apartment (container) has its own locked door, its own furniture, and can't see into the neighbor's apartment.
@@ -134,50 +273,253 @@ Docker containers achieve isolation using two Linux kernel features (this is the
 
 So a container isn't magic — it's just a **regular Linux process** that the kernel has convinced, via namespaces, that it's alone on the machine, and whose resource consumption cgroups keep in check.
 
-## 1.2 Images vs Containers
+# 1.2 Images vs Containers
 
-This is one of the most important distinctions in Docker, and it trips up almost every beginner.
+One of the biggest beginner mistakes is confusing **Images** and **Containers**.
 
-> **An image is a blueprint. A container is a running instance of that blueprint.**
+Think of it this way:
 
-| Image | Container |
-|---|---|
-| Read-only template | Running (or stopped) instance |
-| Stored on disk as layers | Image + a thin writable layer |
-| Doesn't "run" | Actually executes processes |
-| One image | Many containers can be spawned from it |
+> **An Image is a blueprint. A Container is a running application created from that blueprint.**
 
-**Real-world analogy:** an image is like a *class* in object-oriented programming; a container is an *instance* (object) of that class. You can create many objects from one class definition, each with its own state, but they all share the same blueprint.
+A Docker **Image** is a read-only package containing everything an application needs to run:
+
+- Application code
+- Runtime (Python, Node.js, Java, etc.)
+- Libraries
+- Dependencies
+- Configuration
+- Startup command
+
+An Image **cannot run by itself**.
+
+When Docker starts an Image, it creates a **Container**.
+
+A **Container** is simply a running (or stopped) instance of an Image.
+
+---
+
+## How Docker Creates a Container
+
+```mermaid
+flowchart LR
+    Image["📦 Docker Image<br/>(Blueprint / Template)"]
+
+    Run["docker run"]
+
+    Container1["📦 Container 1"]
+    Container2["📦 Container 2"]
+    Container3["📦 Container 3"]
+
+    Image --> Run
+    Run --> Container1
+    Run --> Container2
+    Run --> Container3
+```
+
+A single Image can create **many Containers**.
+
+Each container has its own:
+
+- Processes
+- Files
+- Network
+- Writable storage
+
+Even though they all share the same Image.
+
+---
+
+## Object-Oriented Programming Analogy
+
+If you know C++, Java, or Python, Docker Images are very similar to **classes**, while Containers are like **objects**.
+
+```mermaid
+flowchart LR
+    Class["Class"]
+    Object1["Object A"]
+    Object2["Object B"]
+    Object3["Object C"]
+
+    Class --> Object1
+    Class --> Object2
+    Class --> Object3
+```
+
+Docker works exactly the same way.
+
+```mermaid
+flowchart LR
+    Image["Docker Image"]
+    Container1["Container A"]
+    Container2["Container B"]
+    Container3["Container C"]
+
+    Image --> Container1
+    Image --> Container2
+    Image --> Container3
+```
+
+---
+
+## Image vs Container
+
+| Docker Image | Docker Container |
+|---------------|------------------|
+| 📦 Blueprint | 🚀 Running instance |
+| Read-only | Writable |
+| Cannot execute processes | Executes processes |
+| Stored on disk | Exists in memory while running |
+| Can create many containers | Created from one image |
+| Built using a Dockerfile | Started using `docker run` |
+
+---
+
+# 1.3 Docker Image Layers
+
+A Docker Image is **not one huge file**.
+
+Instead, it is built from multiple **read-only layers** stacked on top of each other.
+
+Each Dockerfile instruction usually creates a new layer.
+
+```mermaid
+flowchart BT
+
+L4["COPY app.py"]
+L3["RUN pip install"]
+L2["RUN apt update"]
+L1["FROM ubuntu:22.04"]
+
+L4 --> L3
+L3 --> L2
+L2 --> L1
+```
+
+You can imagine the image like a stack of transparent sheets.
+
+Each layer only stores **what changed** compared to the layer below it.
+
+---
+
+## Example
+
+Consider this Dockerfile:
+
+```dockerfile
+FROM ubuntu:22.04
+RUN apt update
+RUN pip install flask
+COPY app.py /app/
+```
+
+Docker builds it layer by layer:
+
+| Layer | Dockerfile Instruction | Purpose |
+|--------|------------------------|----------|
+| Layer 4 | `COPY app.py` | Copies your application |
+| Layer 3 | `RUN pip install flask` | Installs Python packages |
+| Layer 2 | `RUN apt update` | Updates Ubuntu packages |
+| Layer 1 | `FROM ubuntu:22.04` | Base operating system |
+
+---
+
+## Why Layers Matter
+
+### 🚀 Faster Builds (Cache)
+
+Suppose you only modify `app.py`.
+
+Docker notices that the first three layers haven't changed.
+
+Instead of rebuilding everything, it only rebuilds the last layer.
+
+```text
+Layer 1 ✅ Reused
+Layer 2 ✅ Reused
+Layer 3 ✅ Reused
+Layer 4 🔄 Rebuilt
+```
+
+This is called **Docker Build Cache**.
+
+---
+
+### 💾 Disk Space Saving
+
+Imagine you have ten Python projects.
+
+Every project starts with:
+
+```dockerfile
+FROM ubuntu:22.04
+```
+
+Docker stores the Ubuntu layer **only once**.
 
 ```
-        docker run
-Image  ───────────►  Container
-(class)               (object/instance)
+Ubuntu Layer
+      │
+ ┌────┼────┐
+ │    │    │
+Img1 Img2 Img3
 ```
 
-## 1.3 Layers
+Every image shares the same base layer.
 
-A Docker image isn't one giant file — it's built from **layers**, stacked on top of each other, where each layer represents a filesystem diff (a set of changes) from the layer below it.
+---
 
-```
-┌─────────────────────────────┐
-│  Layer 4: COPY app.py        │  ← your app
-├─────────────────────────────┤
-│  Layer 3: RUN pip install    │  ← dependencies
-├─────────────────────────────┤
-│  Layer 2: RUN apt update     │  ← system packages
-├─────────────────────────────┤
-│  Layer 1: FROM ubuntu:22.04  │  ← base OS layer
-└─────────────────────────────┘
+### ⚡ Faster Downloads
+
+When pulling an updated image:
+
+```bash
+docker pull myapp:latest
 ```
 
-**Why layers matter:**
+Docker downloads **only the layers you don't already have**.
 
-1. **Caching** — if Layer 1–3 haven't changed, Docker reuses them from cache and only rebuilds Layer 4. This makes rebuilds fast.
-2. **Sharing** — if 10 images are all built `FROM ubuntu:22.04`, that base layer is stored **once** on disk and shared by all 10 images.
-3. **Efficiency** — only the diffs are stored, not full copies of the filesystem at every step.
+Existing layers are reused.
 
-Layers are read-only. When you run a container, Docker adds one more layer on top — a **writable layer** — where all runtime changes (new files, edits, deletes) happen. We'll cover this in depth in Part 4 (Storage).
+This makes image downloads much faster.
+
+---
+
+# Running a Container
+
+When Docker starts a container, it **does not modify the Image**.
+
+Instead, Docker adds one extra **writable layer** on top of the read-only image.
+
+```mermaid
+flowchart BT
+
+Write["✏️ Writable Layer<br/>(Container Changes)"]
+
+L4["COPY app.py"]
+L3["RUN pip install"]
+L2["RUN apt update"]
+L1["Ubuntu Base Layer"]
+
+Write --> L4
+L4 --> L3
+L3 --> L2
+L2 --> L1
+```
+
+Any runtime changes happen only inside this writable layer.
+
+For example:
+
+- Creating files
+- Editing configuration
+- Installing packages inside the running container
+- Deleting files
+
+The original Image **never changes**.
+
+If the container is removed, its writable layer is also removed (unless data is stored in a Docker Volume, which we'll explore later).
+
+> **Key idea:** A Docker Image is a stack of **read-only layers**. A running Container is **that same Image plus one writable layer** where all runtime changes occur.
 
 ## 1.4 Docker Engine, CLI, and Docker Hub
 
@@ -185,33 +527,221 @@ Layers are read-only. When you run a container, Docker adds one more layer on to
 - **Docker CLI** (`docker`) — the command-line tool you type commands into. It doesn't do the work itself — it sends API requests to the Docker Engine (daemon), which does.
 - **Docker Hub** — a public registry (like GitHub, but for images) where prebuilt images (e.g., `nginx`, `mysql`, `python`) are stored and can be pulled down.
 
-## 1.5 Docker Architecture
+# 1.5 Docker Architecture
+
+Docker follows a **client-server architecture**.
+
+When you type a Docker command, it does **not** create containers directly.
+
+Instead, the command travels through several components, each responsible for a specific task.
+
+```mermaid
+flowchart LR
+
+User["👨‍💻 Developer"]
+
+CLI["Docker CLI<br/>docker run"]
+
+Daemon["Docker Daemon<br/>dockerd"]
+
+Containerd["containerd"]
+
+Runc["runc"]
+
+Container["📦 Running Container"]
+
+Hub["Docker Hub<br/>Image Registry"]
+
+User --> CLI
+CLI -->|"REST API"| Daemon
+
+Daemon -->|"Image missing?"| Hub
+Hub -->|"Download Image"| Daemon
+
+Daemon --> Containerd
+Containerd --> Runc
+Runc --> Container
+```
+
+---
+
+# Main Components
+
+## 👨‍💻 Docker CLI
+
+The **Docker CLI (Command Line Interface)** is the program you interact with every day.
+
+Examples:
+
+```bash
+docker run nginx
+docker ps
+docker images
+docker build .
+docker stop my_container
+```
+
+The CLI **does not create containers**.
+
+Its only job is to send your request to the Docker Daemon.
+
+---
+
+## ⚙️ Docker Daemon (`dockerd`)
+
+The **Docker Daemon** is the brain of Docker.
+
+It runs continuously in the background as a system service.
+
+Responsibilities include:
+
+- Building images
+- Pulling images
+- Creating containers
+- Starting containers
+- Stopping containers
+- Managing networks
+- Managing volumes
+- Managing images
+
+The CLI communicates with the daemon using the **Docker REST API**.
+
+On Linux, this communication usually happens through the Unix socket:
+
+```text
+/var/run/docker.sock
+```
+
+---
+
+## 📦 containerd
+
+The Docker Daemon does not create containers by itself.
+
+Instead, it delegates container management to **containerd**.
+
+`containerd` is responsible for:
+
+- Managing container lifecycle
+- Managing images
+- Managing snapshots
+- Managing storage
+- Managing container execution
+
+Think of it as Docker's container manager.
+
+---
+
+## 🚀 runc
+
+`runc` is the low-level runtime that actually starts the container.
+
+Its responsibilities include:
+
+- Creating Linux namespaces
+- Configuring cgroups
+- Mounting filesystems
+- Starting the application process
+
+This is where the container truly comes to life.
+
+---
+
+## ☁️ Docker Hub
+
+Docker Hub is the default **image registry**.
+
+If the requested image doesn't exist locally, Docker automatically downloads it.
+
+Example:
+
+```bash
+docker run nginx
+```
+
+Docker first checks:
 
 ```
-┌──────────────┐        REST API        ┌──────────────────────┐
-│  Docker CLI   │ ─────────────────────► │   Docker Daemon        │
-│ (docker run…) │                        │   (dockerd)             │
-└──────────────┘                        │  ┌──────────────────┐  │
-                                          │  │  containerd       │  │
-                                          │  │  (runtime mgmt)   │  │
-                                          │  └────────┬─────────┘  │
-                                          │           │ runc        │
-                                          │  ┌────────▼─────────┐  │
-                                          │  │   Containers       │  │
-                                          │  └──────────────────┘  │
-                                          └──────────────────────┘
-                                                     │
-                                                     ▼
-                                          ┌──────────────────────┐
-                                          │      Docker Hub        │
-                                          │   (image registry)     │
-                                          └──────────────────────┘
+Is nginx already on this machine?
 ```
 
-- You type a command in the CLI.
-- The CLI sends it to the daemon via a REST API (usually over a Unix socket `/var/run/docker.sock`).
-- The daemon delegates actual container execution to `containerd`, which uses `runc` (a low-level tool implementing the OCI runtime spec) to actually create the namespaces/cgroups and start the process.
-- If an image isn't present locally, the daemon pulls it from a registry like Docker Hub.
+If not:
+
+```
+Download nginx from Docker Hub
+```
+
+After the image is downloaded, Docker creates the container.
+
+---
+
+# What Happens When You Run `docker run nginx`?
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI
+    participant Dockerd
+    participant DockerHub
+    participant containerd
+    participant runc
+    participant Container
+
+    User->>CLI: docker run nginx
+    CLI->>Dockerd: REST API request
+
+    alt Image not found locally
+        Dockerd->>DockerHub: Pull nginx image
+        DockerHub-->>Dockerd: Image downloaded
+    end
+
+    Dockerd->>containerd: Create container
+    containerd->>runc: Start container
+    runc->>Container: Launch nginx process
+    Container-->>User: Running
+```
+
+---
+
+# Request Flow
+
+```text
+You
+ │
+ ▼
+docker run nginx
+ │
+ ▼
+Docker CLI
+ │
+ ▼
+Docker Daemon (dockerd)
+ │
+ ├── Pull image if needed
+ │
+ ▼
+containerd
+ │
+ ▼
+runc
+ │
+ ▼
+Running Container
+```
+
+---
+
+# Summary
+
+| Component | Responsibility |
+|-----------|----------------|
+| 👨‍💻 Docker CLI | Accepts Docker commands from the user |
+| ⚙️ Docker Daemon (`dockerd`) | The central engine that manages Docker resources |
+| 📦 containerd | Manages the container lifecycle and execution |
+| 🚀 runc | Creates Linux namespaces, cgroups, and starts the container process |
+| ☁️ Docker Hub | Stores and distributes Docker images |
+
+> **Key idea:** When you type `docker run`, the Docker CLI doesn't create the container. It sends a request to the **Docker Daemon**, which coordinates everything—pulling the image if necessary, asking **containerd** to manage the container, and finally using **runc** to create the isolated Linux process that becomes your running container.
 
 ## Chapter Summary
 
@@ -545,24 +1075,214 @@ Write a Dockerfile for a simple Python Flask app: base image `python:3.12-slim`,
 
 # Part 4 — Storage
 
-## 4.1 The Writable Layer
+# 4.1 The Writable Layer
 
-When a container runs, Docker adds one thin **writable layer** on top of the image's read-only layers. Any file the running process creates, edits, or deletes happens here.
+Docker Images are **read-only**.
+
+When you start a container, Docker **does not modify the Image**.
+
+Instead, Docker creates a new **writable layer** on top of the Image where all runtime changes are stored.
+
+```mermaid
+flowchart BT
+
+Write["✏️ Writable Layer<br/>(Container)"]
+
+L4["Image Layer 4"]
+L3["Image Layer 3"]
+L2["Image Layer 2"]
+L1["Image Layer 1"]
+
+Write --> L4
+L4 --> L3
+L3 --> L2
+L2 --> L1
+```
+
+Everything that happens while the container is running is stored in this writable layer.
+
+For example:
+
+- Creating new files
+- Editing configuration files
+- Installing packages
+- Writing logs
+- Saving uploaded files
+- Database writes
+
+The original Image **never changes**.
+
+---
+
+# How It Works
+
+Imagine you start an Ubuntu container.
+
+```bash
+docker run -it ubuntu bash
+```
+
+Inside the container, you create a file:
+
+```bash
+echo "Hello Docker" > hello.txt
+```
+
+Where is `hello.txt` stored?
+
+```text
+Image Layers ❌
+Writable Layer ✅
+```
+
+The Image remains unchanged.
+
+Only this specific container can see the file.
+
+---
+
+# What Happens When the Container Is Removed?
+
+Suppose you stop and remove the container:
+
+```bash
+docker stop my_container
+docker rm my_container
+```
+
+The writable layer is deleted.
+
+```mermaid
+flowchart TB
+
+Image["📦 Docker Image"]
+
+Container["📦 Container"]
+
+Writable["✏️ Writable Layer"]
+
+Image --> Container
+Container --> Writable
+
+Delete["docker rm"]
+
+Delete -. removes .-> Writable
+```
+
+Everything stored there disappears:
+
+- ❌ Created files
+- ❌ Installed software
+- ❌ Logs
+- ❌ Database data
+- ❌ Uploaded files
+
+The Image is still available because it was never modified.
+
+---
+
+# Why Is It Called "Ephemeral"?
+
+The writable layer is **ephemeral**, meaning it is **temporary**.
+
+It exists **only for the lifetime of the container**.
 
 ```
-┌─────────────────────────────┐
-│   Writable Layer (container)  │  ← ephemeral! deleted with `docker rm`
-├─────────────────────────────┤
-│   Image Layer 3 (read-only)   │
-├─────────────────────────────┤
-│   Image Layer 2 (read-only)   │
-├─────────────────────────────┤
-│   Image Layer 1 (read-only)   │
-└─────────────────────────────┘
+Create Container
+        │
+        ▼
+Writable Layer Created
+        │
+        ▼
+Application Runs
+        │
+        ▼
+Container Removed
+        │
+        ▼
+Writable Layer Deleted
 ```
 
-> **Warning**
-> The writable layer is **destroyed** when you `docker rm` the container. This is the #1 cause of the classic beginner panic: "I ran my database in a container, restarted it, and all my data disappeared!" The fix: **volumes**.
+---
+
+# A Common Beginner Mistake
+
+Imagine running a MySQL container:
+
+```bash
+docker run mysql
+```
+
+The database starts normally.
+
+You create:
+
+- Customers
+- Orders
+- Products
+
+Everything works perfectly.
+
+Then later you remove the container:
+
+```bash
+docker rm mysql
+```
+
+You start a new one:
+
+```bash
+docker run mysql
+```
+
+The database is empty.
+
+Why?
+
+Because all of the database files were stored inside the **container's writable layer**, and removing the container also removed that layer.
+
+---
+
+# The Solution: Docker Volumes
+
+Docker Volumes store data **outside the container's writable layer**.
+
+```mermaid
+flowchart LR
+
+Image["📦 Docker Image"]
+
+Container["📦 Container"]
+
+Write["✏️ Writable Layer"]
+
+Volume["💾 Docker Volume"]
+
+Image --> Container
+Container --> Write
+Container --> Volume
+```
+
+Now:
+
+- Remove the container ✅
+- Create another container from the same Image ✅
+- Attach the same Volume ✅
+- Your data is still there ✅
+
+This is why databases such as:
+
+- MySQL
+- PostgreSQL
+- MariaDB
+- MongoDB
+- Redis
+
+almost always use **Docker Volumes**.
+
+---
+
+> 💡 **Key idea:** A Docker Image is **read-only**. Every running Container gets its own **writable layer**, which is temporary and deleted when the container is removed. To keep important data after a container is deleted, store it in a **Docker Volume**, not in the writable layer.
 
 ## 4.2 Volumes
 
@@ -590,35 +1310,284 @@ docker run -v /home/user/project:/app myimage
 | Portability | High (works the same across hosts) | Low (depends on host path existing) |
 | Common use | Databases, persistent app data | Local development (live code editing) |
 
-## 4.4 Anonymous Volumes
+# 4.4 Anonymous Volumes
 
-A volume with no explicit name, created implicitly (e.g., via `VOLUME` in a Dockerfile with no source specified, or `-v /data` without a `host:` part). Docker assigns it a random hash as a name.
+An **Anonymous Volume** is a Docker Volume that **does not have a human-readable name**.
+
+Instead, Docker automatically generates a random name for it.
+
+For example:
 
 ```bash
 docker run -v /data myimage
 ```
 
-> **Warning**
-> Anonymous volumes are easy to lose track of — since they have random names, they pile up as "dangling" volumes over time if not cleaned with `docker volume prune`.
+Notice that only the **container path** is specified:
 
-## 4.5 Data Persistence — Where Files Actually Live
-
-```
-Host Machine
-└── /var/lib/docker/
-    ├── overlay2/           ← image + container writable layers
-    │   └── <layer-id>/
-    └── volumes/
-        └── mydata/
-            └── _data/      ← actual volume file contents
+```text
+/data
 ```
 
+Since no volume name is provided, Docker creates one automatically.
+
+```mermaid
+flowchart LR
+
+Container["📦 Container"]
+
+Volume["💾 Anonymous Volume<br/>8d5c2f9b7e..."]
+
+Container -->|/data| Volume
 ```
-┌─────────────┐   -v mydata:/data   ┌───────────────────────────┐
-│  Container   │ ◄─────────────────► │ /var/lib/docker/volumes/…  │
-│   /data       │                     │ mydata/_data/               │
-└─────────────┘                     └───────────────────────────┘
+
+Internally, Docker creates something similar to:
+
+```text
+8d5c2f9b7e5d5a...
 ```
+
+instead of a friendly name like:
+
+```text
+mysql_data
+```
+
+---
+
+## What Happens Behind the Scenes?
+
+When you run:
+
+```bash
+docker run -v /data myimage
+```
+
+Docker actually does something similar to:
+
+```text
+Create Volume
+      │
+      ▼
+8d5c2f9b7e5d...
+      │
+      ▼
+Mount it inside:
+/data
+```
+
+The application doesn't know or care what the volume is called.
+
+It simply reads and writes files inside `/data`.
+
+---
+
+## Why Does Docker Create Anonymous Volumes?
+
+Some Docker Images include a `VOLUME` instruction in their Dockerfile.
+
+Example:
+
+```dockerfile
+VOLUME /var/lib/mysql
+```
+
+When you start a container **without providing your own volume**, Docker automatically creates an anonymous volume for that directory.
+
+This protects important data from being stored in the container's writable layer.
+
+---
+
+## The Problem with Anonymous Volumes
+
+Because Docker generates random names, they are difficult to recognize later.
+
+Imagine running the same container several times:
+
+```bash
+docker run myimage
+docker run myimage
+docker run myimage
+```
+
+Docker may create several anonymous volumes:
+
+```
+8d5c2f9b...
+c17a91f3...
+91ab82d4...
+```
+
+After deleting the containers, these volumes may remain on your system.
+
+Over time they consume disk space.
+
+---
+
+## Cleaning Up
+
+List all volumes:
+
+```bash
+docker volume ls
+```
+
+Remove unused anonymous volumes:
+
+```bash
+docker volume prune
+```
+
+⚠️ This removes **all unused volumes**, so be careful if they contain important data.
+
+---
+
+## Named vs Anonymous Volumes
+
+| Named Volume | Anonymous Volume |
+|--------------|------------------|
+| Has a readable name | Docker generates a random name |
+| Easy to reuse | Difficult to identify later |
+| Easy to share between containers | Usually tied to one container |
+| Best for databases and persistent data | Mostly created automatically by Docker Images |
+
+> 💡 **Recommendation:** In your own projects, prefer **Named Volumes**. They are easier to manage, easier to reuse, and much more readable than anonymous volumes.
+
+---
+
+# 4.5 Data Persistence — Where Files Actually Live
+
+Many beginners think Docker Volumes are stored **inside the container**.
+
+They are not.
+
+A Docker Volume lives **on the host machine**.
+
+The container simply mounts it into its filesystem.
+
+```mermaid
+flowchart LR
+
+Host["🖥️ Host Machine"]
+
+subgraph Docker["Docker Storage"]
+    Overlay["overlay2<br/>Images & Writable Layers"]
+    Volumes["volumes/<br/>Persistent Data"]
+end
+
+Container["📦 Container<br/>/data"]
+
+Host --> Docker
+Volumes -->|Mounted| Container
+```
+
+---
+
+## Docker Storage Layout (Linux)
+
+By default, Docker stores its data under:
+
+```text
+/var/lib/docker/
+```
+
+A simplified structure looks like this:
+
+```text
+/var/lib/docker/
+├── overlay2/
+│   ├── Image Layers
+│   └── Container Writable Layers
+│
+└── volumes/
+    ├── mysql_data/
+    │   └── _data/
+    │
+    └── postgres_data/
+        └── _data/
+```
+
+### What Does Each Folder Contain?
+
+| Directory | Purpose |
+|-----------|----------|
+| `overlay2/` | Stores Docker Images and container writable layers. |
+| `volumes/` | Stores Docker Volumes that persist even after containers are removed. |
+
+---
+
+## How a Volume Is Mounted
+
+Suppose you run:
+
+```bash
+docker run -v mysql_data:/var/lib/mysql mysql
+```
+
+Docker performs the following mapping:
+
+```mermaid
+flowchart LR
+
+Host["🖥️ Host"]
+
+Volume["💾 mysql_data"]
+
+Container["📦 MySQL Container"]
+
+Folder["/var/lib/mysql"]
+
+Host --> Volume
+Volume --> Folder
+Container --> Folder
+```
+
+Internally, Docker mounts something similar to:
+
+```text
+/var/lib/docker/volumes/mysql_data/_data
+```
+
+into
+
+```text
+/var/lib/mysql
+```
+
+inside the container.
+
+The MySQL process simply writes to `/var/lib/mysql`.
+
+It doesn't know those files are actually stored on the host machine.
+
+---
+
+## Why This Matters
+
+When you remove the container:
+
+```bash
+docker rm mysql
+```
+
+the container disappears.
+
+The volume remains.
+
+```
+Container ❌ Deleted
+
+Volume ✅ Still Exists
+```
+
+Create a new MySQL container using the same volume:
+
+```bash
+docker run -v mysql_data:/var/lib/mysql mysql
+```
+
+Your database is still there because the files were stored in the Docker Volume, **not in the container's writable layer**.
+
+> 💡 **Key idea:** A Docker Volume is **host storage managed by Docker**. Containers only mount the volume into their filesystem. This separation allows data to survive even when containers are deleted.
 
 ## Chapter Summary
 
@@ -644,28 +1613,287 @@ Create a named volume, run a container that writes a file to it, remove the cont
 
 # Part 5 — Docker Networking
 
-## 5.1 The Network Drivers
+# 5.1 Docker Network Drivers
 
-| Driver | Behavior |
-|---|---|
-| `bridge` (default) | Private internal network; containers get their own IP, can reach each other and the internet via NAT |
-| `host` | Container shares the host's network namespace directly — no isolation, no port mapping needed |
-| `none` | No networking at all — fully isolated |
-| custom `bridge` | A user-defined bridge network — like default bridge, but with **automatic DNS resolution by container name** |
+By default, every Docker container runs in its own isolated network environment.
 
+Docker uses **network drivers** to determine **how containers communicate** with:
+
+- Other containers
+- The host machine
+- The Internet
+
+Different applications require different networking behavior, which is why Docker provides multiple network drivers.
+
+---
+
+## Docker Network Drivers
+
+| Driver | Description | Typical Use |
+|---------|-------------|-------------|
+| `bridge` | Default private network for containers on a single host | General applications |
+| `host` | Container shares the host's network stack | High-performance networking |
+| `none` | Completely disables networking | Security, testing, isolated workloads |
+| Custom `bridge` | User-created bridge network with automatic DNS | Multi-container applications (recommended) |
+
+---
+
+# 1. Bridge Network (Default)
+
+When Docker is installed, it automatically creates a **bridge** network.
+
+Every container connected to this network receives:
+
+- Its own private IP address
+- Internet access through NAT
+- Network isolation from the host
+
+```mermaid
+flowchart LR
+
+Internet
+
+Bridge["Docker Bridge Network"]
+
+C1["Container 1<br/>172.17.0.2"]
+C2["Container 2<br/>172.17.0.3"]
+
+Internet --> Bridge
+Bridge --> C1
+Bridge --> C2
 ```
-Default bridge:                    Custom bridge network "app_net":
-┌──────────┐  ┌──────────┐        ┌──────────┐  ┌──────────┐
-│Container1 │  │Container2 │        │  web      │  │   db      │
-│172.17.0.2│  │172.17.0.3│        │ (DNS: web)│  │ (DNS: db) │
-└─────┬────┘  └────┬─────┘        └─────┬────┘  └────┬─────┘
-      └──────┬──────┘                    └──────┬──────┘
-        must use IPs                    can use container NAME
-      to talk to each other            e.g. "ping db" just works
+
+Example:
+
+```bash
+docker run nginx
 ```
 
-> **Tip**
-> Always create a **custom bridge network** for multi-container apps instead of relying on the default bridge. The default bridge doesn't provide automatic DNS between containers — you'd have to hardcode IPs, which change every restart.
+The container is automatically attached to the default bridge network.
+
+---
+
+## Limitation of the Default Bridge
+
+Containers can communicate using **IP addresses**.
+
+```text
+172.17.0.2
+172.17.0.3
+```
+
+However, Docker **does not automatically resolve container names** on the default bridge.
+
+If a container is recreated, its IP may change.
+
+This makes applications difficult to maintain.
+
+---
+
+# 2. Host Network
+
+With the `host` driver, Docker **does not create a separate network namespace**.
+
+Instead, the container uses the host's networking directly.
+
+```mermaid
+flowchart LR
+
+Host["🖥️ Host Network"]
+
+Container["📦 Container"]
+
+Host --> Container
+```
+
+Example:
+
+```bash
+docker run --network host nginx
+```
+
+Characteristics:
+
+- No virtual bridge
+- No container IP
+- No NAT
+- No port mapping (`-p`) required
+
+Advantages:
+
+- Maximum network performance
+- Lower latency
+
+Disadvantages:
+
+- No network isolation
+- Containers can conflict by using the same ports
+
+---
+
+# 3. None Network
+
+Sometimes an application should have **no network access at all**.
+
+Docker provides the `none` driver for this purpose.
+
+```mermaid
+flowchart LR
+
+Container["📦 Container"]
+
+Internet["🌍 Internet"]
+
+Container -. No Connection .-> Internet
+```
+
+Example:
+
+```bash
+docker run --network none ubuntu
+```
+
+The container has:
+
+- ❌ No Internet
+- ❌ No Ethernet interface
+- ❌ No communication with other containers
+
+Useful for:
+
+- Security testing
+- Offline processing
+- Highly isolated workloads
+
+---
+
+# 4. Custom Bridge Network (Recommended)
+
+A **Custom Bridge Network** is similar to the default bridge, but with an important improvement:
+
+✅ **Automatic DNS resolution between containers.**
+
+Create one:
+
+```bash
+docker network create app_net
+```
+
+Run containers:
+
+```bash
+docker run --network app_net --name web nginx
+docker run --network app_net --name db mysql
+```
+
+Now Docker automatically creates DNS records.
+
+```mermaid
+flowchart LR
+
+subgraph AppNet["Custom Bridge Network"]
+
+Web["📦 web"]
+
+DB["📦 db"]
+
+end
+
+Web <-->|DNS| DB
+```
+
+Inside the `web` container you can simply use:
+
+```text
+db
+```
+
+instead of
+
+```text
+172.18.0.3
+```
+
+This makes applications much easier to build and maintain.
+
+---
+
+# Default Bridge vs Custom Bridge
+
+```mermaid
+flowchart LR
+
+subgraph Default["Default Bridge"]
+
+A1["Container A"]
+A2["Container B"]
+
+A1 -->|"172.17.0.3"| A2
+
+end
+
+subgraph Custom["Custom Bridge"]
+
+B1["web"]
+B2["db"]
+
+B1 -->|"db"| B2
+
+end
+```
+
+| Default Bridge | Custom Bridge |
+|----------------|---------------|
+| Uses IP addresses | Uses container names |
+| No automatic DNS | Automatic DNS |
+| Harder to maintain | Easy to maintain |
+| Suitable for simple tests | Recommended for real applications |
+
+---
+
+# Why Docker DNS Matters
+
+Imagine your web application connects to MySQL.
+
+Without Docker DNS:
+
+```text
+mysql_host = 172.18.0.4
+```
+
+If the database container is recreated:
+
+```text
+172.18.0.7
+```
+
+Your application stops working.
+
+With a custom bridge network:
+
+```text
+mysql_host = db
+```
+
+The IP can change, but Docker automatically updates the DNS entry.
+
+Your application continues working without any configuration changes.
+
+---
+
+# Best Practice
+
+For multi-container applications (such as Docker Compose or the **42 Inception** project), always create a **custom bridge network**.
+
+Benefits:
+
+- ✅ Automatic DNS
+- ✅ Easier communication
+- ✅ No hardcoded IP addresses
+- ✅ Better isolation between projects
+- ✅ Easier scaling and maintenance
+
+> 💡 **Key idea:** A **custom bridge network** is the recommended choice for most Docker applications because it provides private networking **and built-in DNS**, allowing containers to communicate using names like `db` or `wordpress` instead of fragile IP addresses.
 
 ## 5.2 `localhost` Inside vs Outside a Container
 
@@ -924,20 +2152,170 @@ Write a `docker-compose.yml` with two services: a custom-built Python API (`buil
 - Database administration in a containerized context
 - The principle of **least exposure**: only the service that *needs* to be public, is public
 
-## 7.2 Overall Architecture
+# 7.2 Overall Architecture
+
+The **Inception** project follows a classic three-tier web architecture:
+
+- **Nginx** receives HTTPS requests from the browser.
+- **PHP-FPM** executes the WordPress PHP application.
+- **MariaDB** stores the website's data.
+- **Docker Volumes** persist WordPress files and database data.
+
+Only **Nginx** is exposed to the outside world.
+
+All other services communicate **privately** through Docker's internal network.
+
+---
+
+## Architecture Overview
 
 ```mermaid
-graph TD
-    Browser["🌐 Browser (Client)"] -->|HTTPS :443| Nginx
-    subgraph Docker Host - inception network
-        Nginx["Nginx (TLS termination)"] -->|FastCGI :9000| PHPFPM["PHP-FPM (WordPress runtime)"]
-        PHPFPM -->|TCP :3306| MariaDB["MariaDB (Database)"]
-        PHPFPM --- WPFiles[("Volume: wp_data\n/var/www/html")]
-        MariaDB --- DBFiles[("Volume: db_data\n/var/lib/mysql")]
-    end
+flowchart LR
+
+User["👤 User"]
+
+Browser["🌐 Browser"]
+
+User --> Browser
+
+Browser -->|"HTTPS :443"| Nginx
+
+subgraph Docker["🐳 Docker Network (inception_network)"]
+
+Nginx["Nginx<br/>Reverse Proxy + TLS"]
+
+PHP["PHP-FPM<br/>WordPress Runtime"]
+
+DB["MariaDB"]
+
+WPVolume[("💾 wp_data")]
+DBVolume[("💾 db_data")]
+
+Nginx -->|"FastCGI :9000"| PHP
+
+PHP -->|"SQL :3306"| DB
+
+PHP --- WPVolume
+DB --- DBVolume
+
+end
 ```
 
-Only **Nginx** exposes a port to the outside world (`443`). Everything else is reachable only from *inside* the Docker network.
+---
+
+# Request Flow
+
+When a user visits your website, the request follows this path:
+
+```mermaid
+sequenceDiagram
+
+participant User
+participant Browser
+participant Nginx
+participant PHP
+participant MariaDB
+
+User->>Browser: Visit https://example.com
+
+Browser->>Nginx: HTTPS Request (443)
+
+Nginx->>PHP: FastCGI Request (9000)
+
+PHP->>MariaDB: SQL Query (3306)
+
+MariaDB-->>PHP: Database Result
+
+PHP-->>Nginx: Generated HTML
+
+Nginx-->>Browser: HTTPS Response
+
+Browser-->>User: Display Web Page
+```
+
+---
+
+# Component Responsibilities
+
+| Component | Responsibility |
+|-----------|----------------|
+| 🌐 Browser | Sends HTTPS requests and displays the website. |
+| 🔒 Nginx | Terminates TLS, accepts external traffic, and forwards PHP requests to PHP-FPM. |
+| 🐘 PHP-FPM | Executes WordPress PHP code and generates dynamic pages. |
+| 🗄️ MariaDB | Stores users, posts, comments, settings, and other WordPress data. |
+| 💾 `wp_data` | Persists WordPress files (`/var/www/html`). |
+| 💾 `db_data` | Persists MariaDB database files (`/var/lib/mysql`). |
+
+---
+
+# Why Is Only Nginx Exposed?
+
+The Docker Compose configuration publishes only:
+
+```text
+443 → Nginx
+```
+
+Everything else remains private.
+
+```mermaid
+flowchart LR
+
+Internet["🌍 Internet"]
+
+Nginx["Nginx :443"]
+
+PHP["PHP-FPM :9000"]
+
+DB["MariaDB :3306"]
+
+Internet --> Nginx
+
+Nginx --> PHP
+
+PHP --> DB
+
+Internet -. Blocked .-> PHP
+Internet -. Blocked .-> DB
+```
+
+This improves security because:
+
+- ✅ Users cannot access MariaDB directly.
+- ✅ PHP-FPM is hidden from the Internet.
+- ✅ Nginx acts as the single entry point to the application.
+- ✅ TLS certificates are managed in one place.
+
+---
+
+# Data Flow
+
+WordPress uses two different kinds of storage:
+
+```mermaid
+flowchart LR
+
+PHP["PHP-FPM"]
+
+WP["💾 wp_data"]
+
+DB["MariaDB"]
+
+MDB["💾 db_data"]
+
+PHP --> WP
+
+PHP --> DB
+
+DB --> MDB
+```
+
+- **`wp_data`** stores WordPress files such as themes, plugins, uploads, and media.
+- **`db_data`** stores all database content, including users, posts, comments, and configuration.
+
+These Docker Volumes allow data to persist even if the containers are deleted and recreated.
+
+> 💡 **Key idea:** The Inception architecture follows a secure, layered design. **Nginx** is the only public-facing service, **PHP-FPM** processes WordPress requests, **MariaDB** stores application data, and **Docker Volumes** ensure that website files and database contents survive container recreation.
 
 ## 7.3 Service-by-Service Breakdown
 
@@ -1053,9 +2431,47 @@ Draw (on paper or in a diagram tool) the full Inception architecture from memory
 
 # Part 8 — Building the Project
 
-## 8.1 Folder Structure
+# 8.1 Project Folder Structure
 
+The **Inception** project follows a modular structure.
+
+Each service (Nginx, WordPress, MariaDB, etc.) is isolated in its own directory, containing everything needed to build and configure its Docker image.
+
+```mermaid
+flowchart TB
+
+Root["📁 inception/"]
+
+Make["📄 Makefile"]
+Env["📄 .env"]
+
+Srcs["📁 srcs/"]
+
+Compose["📄 docker-compose.yml"]
+
+Req["📁 requirements/"]
+
+Nginx["📁 nginx/"]
+WP["📁 wordpress/"]
+DB["📁 mariadb/"]
+
+Root --> Make
+Root --> Env
+Root --> Srcs
+
+Srcs --> Compose
+Srcs --> Req
+
+Req --> Nginx
+Req --> WP
+Req --> DB
 ```
+
+---
+
+## Directory Tree
+
+```text
 inception/
 ├── Makefile
 ├── .env
@@ -1068,12 +2484,14 @@ inception/
         │   │   └── nginx.conf
         │   └── tools/
         │       └── setup.sh
+        │
         ├── wordpress/
         │   ├── Dockerfile
         │   ├── conf/
         │   │   └── www.conf
         │   └── tools/
         │       └── setup.sh
+        │
         └── mariadb/
             ├── Dockerfile
             ├── conf/
@@ -1082,7 +2500,171 @@ inception/
                 └── setup.sh
 ```
 
-**Why this structure:** 42's subject mandates it — `srcs/` isolates all source material from the top-level `Makefile`/`.env`, and each service gets its own `requirements/<service>/` folder containing its Dockerfile and any config/scripts it needs, mirroring how you'd organize a real multi-service infrastructure repo.
+---
+
+# What Does Each File Do?
+
+| Path | Purpose |
+|------|----------|
+| `Makefile` | Simplifies project commands such as building, starting, stopping, and cleaning Docker resources. |
+| `.env` | Stores environment variables (database credentials, domain name, usernames, passwords, etc.). |
+| `srcs/docker-compose.yml` | Defines every service, network, volume, dependency, and container configuration. |
+| `requirements/` | Contains everything required to build each Docker image. |
+
+---
+
+# Structure of Each Service
+
+Every service follows the same organization.
+
+```mermaid
+flowchart TB
+
+Service["📁 Service"]
+
+Dockerfile["📄 Dockerfile"]
+
+Conf["📁 conf"]
+
+Tools["📁 tools"]
+
+Config["Configuration Files"]
+
+Script["setup.sh"]
+
+Service --> Dockerfile
+Service --> Conf
+Service --> Tools
+
+Conf --> Config
+Tools --> Script
+```
+
+Each service contains three main components:
+
+| Item | Purpose |
+|------|----------|
+| `Dockerfile` | Defines how Docker builds the image. |
+| `conf/` | Stores configuration files specific to the service. |
+| `tools/` | Contains shell scripts executed during container startup. |
+
+---
+
+# Example: Nginx
+
+```text
+nginx/
+├── Dockerfile
+├── conf/
+│   └── nginx.conf
+└── tools/
+    └── setup.sh
+```
+
+### Dockerfile
+
+Responsible for:
+
+- Selecting the base image
+- Installing packages
+- Copying configuration files
+- Copying startup scripts
+- Defining the startup command
+
+---
+
+### conf/
+
+Contains configuration files used by the application.
+
+Example:
+
+```text
+nginx.conf
+```
+
+This file controls things such as:
+
+- Listening port
+- SSL configuration
+- Reverse proxy settings
+- Static file handling
+- PHP forwarding
+
+---
+
+### tools/
+
+Contains executable shell scripts.
+
+Example:
+
+```text
+setup.sh
+```
+
+Typical responsibilities include:
+
+- Creating directories
+- Setting file permissions
+- Generating SSL certificates
+- Starting services
+- Performing initialization tasks
+
+---
+
+# Why Separate `conf/` and `tools/`?
+
+Instead of placing everything in the Dockerfile, responsibilities are separated.
+
+```mermaid
+flowchart LR
+
+Dockerfile -->|"Copies"| Config["conf/"]
+Dockerfile -->|"Copies"| Script["tools/setup.sh"]
+
+Script --> Service["Running Service"]
+```
+
+This makes the project:
+
+- Easier to read
+- Easier to maintain
+- Easier to debug
+- Easier to modify
+
+For example:
+
+- Need to change Nginx settings? → Edit `conf/nginx.conf`
+- Need to change startup behavior? → Edit `tools/setup.sh`
+- Need to change the image itself? → Edit the `Dockerfile`
+
+Each file has a single responsibility.
+
+---
+
+# Why Does Every Service Have Its Own Dockerfile?
+
+Docker builds **one image per service**.
+
+For example:
+
+```text
+Nginx Image
+WordPress Image
+MariaDB Image
+```
+
+Each service has different:
+
+- Software
+- Packages
+- Configuration
+- Startup process
+
+Keeping each service in its own directory ensures they remain **independent** and can be built, tested, and updated separately.
+
+> 💡 **Key idea:** Inception organizes every service as a self-contained module. Each service owns its **Dockerfile**, **configuration files**, and **startup scripts**, making the project easier to understand, maintain, and scale.
 
 ## 8.2 `.env`
 
