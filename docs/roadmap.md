@@ -175,37 +175,46 @@ flowchart TB
     App2 --> Lib2
 ```
 
-### Why are containers so fast?
+### Why Are Containers So Fast?
 
-Unlike Virtual Machines, containers **do not boot a new operating system**.
+Unlike Virtual Machines, containers **do not boot a separate operating system**.
 
-Instead, they reuse the host's kernel.
+Instead, they **share the host operating system's kernel** while keeping their own isolated user space (application, libraries, binaries, and configuration).
 
-```text
-Virtual Machine
-────────────────────────────────
-App
-Libraries
-Guest Operating System
-Kernel
-────────────────────────────────
+This eliminates the overhead of running a complete Guest OS for every application.
 
-Container
-────────────────────────────────
-App
-Libraries
-────────────────────────────────
-Shared Host Kernel
+```mermaid
+flowchart LR
+
+subgraph VM["Virtual Machine"]
+    App1["Application"]
+    Lib1["Libraries"]
+    OS1["Guest Operating System"]
+    Kernel1["Guest Kernel"]
+end
+
+subgraph Container["Container"]
+    App2["Application"]
+    Lib2["Libraries"]
+end
+
+Host["Host Operating System<br/>Shared Kernel"]
+
+VM --> Host
+Container --> Host
 ```
 
-Because there is no extra operating system:
+### Why Does This Make Containers Faster?
 
-- Containers start in **seconds (often milliseconds)**.
-- They consume much less RAM.
-- Hundreds of containers can run on a single server.
-- Building and deploying applications becomes much faster.
+Since containers reuse the host's kernel:
 
----
+- 🚀 They start in **seconds (often milliseconds)** because there is no operating system to boot.
+- 💾 They consume much less RAM since multiple containers share the same kernel.
+- 📦 Hundreds of containers can run on a single machine, whereas far fewer Virtual Machines fit on the same hardware.
+- ⚡ Images are smaller, making them faster to build, download, and deploy.
+- 🔄 Scaling applications is much quicker because creating a new container is simply starting another isolated process.
+
+> 💡 **Key idea:** A container is essentially an **isolated process** running on the host's operating system, while a Virtual Machine is an **entire computer** with its own operating system and kernel.
 
 ## Advantages of Containers
 
