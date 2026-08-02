@@ -7,36 +7,6 @@ This project has been created as part of the 42 curriculum by elel-m-b
 The objective is to build a complete web infrastructure composed of multiple isolated services running inside Docker containers. Each service has its own responsibility and communicates with the others through a dedicated Docker network.
 
 The project teaches how to deploy and manage applications in a reproducible, portable, and maintainable environment without relying on virtual machines.
-
-At the end of the project, the infrastructure typically contains:
-
-- **NGINX** (reverse proxy with TLS)
-- **WordPress** (PHP application)
-- **MariaDB** (database)
-- Docker volumes for persistent data
-- Docker networks for communication
-- Docker Compose for orchestration
-
-The infrastructure is built from custom Docker images using Dockerfiles instead of pre-built images (except where explicitly allowed by the subject).
-
----
-
-# Project Description
-
-## Why Docker?
-
-Docker packages an application together with everything it needs to run:
-
-- Operating system libraries
-- Runtime
-- Dependencies
-- Configuration
-- Application code
-
-This guarantees that the application behaves the same way on every machine.
-
-Instead of configuring software manually on every server, Docker allows infrastructure to be recreated with a single command.
-
 ---
 
 ## 📦 Project Architecture
