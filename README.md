@@ -9,32 +9,32 @@ The objective is to build a complete web infrastructure composed of multiple iso
 The project teaches how to deploy and manage applications in a reproducible, portable, and maintainable environment without relying on virtual machines.
 ---
 
-## 📦 Project Architecture
+##  Project Architecture
 
 ```mermaid
 flowchart TB
-    INTERNET([🌍 Internet])
+    INTERNET([Internet])
 
-    subgraph DOCKER["🐳 Docker Environment"]
+    subgraph DOCKER["Docker Environment"]
         direction TB
 
-        NGINX["🌐 NGINX
+        NGINX["NGINX
 HTTPS :443"]
 
         subgraph NETWORK["Docker Bridge Network"]
             direction LR
 
-            WP["📝 WordPress
+            WP["WordPress
 PHP-FPM"]
 
-            DB["🗄️ MariaDB"]
+            DB["MariaDB"]
         end
 
         NGINX -->|FastCGI| WP
         WP <-->|SQL| DB
 
-        WP_DATA[("📂 wordpress_data")]
-        DB_DATA[("📂 database_data")]
+        WP_DATA[("wordpress_data")]
+        DB_DATA[("database_data")]
 
         WP --- WP_DATA
         DB --- DB_DATA
