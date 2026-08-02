@@ -39,30 +39,38 @@ Instead of configuring software manually on every server, Docker allows infrastr
 
 ---
 
-## Project Architecture
+## 📦 Project Architecture
 
-```
-                    Internet
-                        │
-                        ▼
-                  +-------------+
-                  |    NGINX    |
-                  | HTTPS:443   |
-                  +-------------+
-                        │
-            -------------------------
-            │                       │
-            ▼                       ▼
-        WordPress                MariaDB
-            │                       │
-            ───────────────────────┘
-                        │
-                Docker Bridge Network
+```mermaid
+flowchart TB
+    INTERNET([🌍 Internet])
 
-Volumes
--------
-wordpress_data
-database_data
+    subgraph DOCKER["🐳 Docker Environment"]
+        direction TB
+
+        NGINX["🌐 NGINX
+HTTPS :443"]
+
+        subgraph NETWORK["Docker Bridge Network"]
+            direction LR
+
+            WP["📝 WordPress
+PHP-FPM"]
+
+            DB["🗄️ MariaDB"]
+        end
+
+        NGINX -->|FastCGI| WP
+        WP <-->|SQL| DB
+
+        WP_DATA[("📂 wordpress_data")]
+        DB_DATA[("📂 database_data")]
+
+        WP --- WP_DATA
+        DB --- DB_DATA
+    end
+
+    INTERNET --> NGINX
 ```
 
 ---
