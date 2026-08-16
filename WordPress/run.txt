@@ -1,0 +1,13 @@
+wordpress script: 
+
+Container starts
+      ↓
+Wait for MariaDB
+      ↓
+Create wp-config.php
+      ↓
+Install WordPress
+      ↓
+Configure PHP-FPM
+      ↓
+Start PHP-FPM in foreground
