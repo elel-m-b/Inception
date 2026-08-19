@@ -1,35 +1,27 @@
 #!/bin/bash
 
-set -e
+if [ ! -d "/var/lib/mysql/mysql" ]; then
 
-DATADIR="/var/lib/mysql"
-
-if [ ! -d "$DATADIR/mysql" ]; then
     echo "Initializing MariaDB..."
 
-    mariadb-install-db --user=mysql --datadir="$DATADIR"
+    mariadb-install-db --user=mysql --datadir=/var/lib/mysql
 
     mysqld_safe --skip-networking &
-    pid="$!"
 
-    echo "Waiting for MariaDB..."
-    until mariadb-admin ping --silent; do
-        sleep 1
-    done
+    sleep 5
 
-    echo "Creating database and user..."
+    mariadb -e "CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\`;"
 
-    mariadb <<-EOF
-        CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\`;
-        CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
-        GRANT ALL PRIVILEGES ON \`${MYSQL_DATABASE}\`.* TO '${MYSQL_USER}'@'%';
-        ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';
-        FLUSH PRIVILEGES;
-EOF
+    mariadb -e "CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';"
 
-    mariadb-admin shutdown -u root -p"${MYSQL_ROOT_PASSWORD}"
+    mariadb -e "GRANT ALL PRIVILEGES ON \`${MYSQL_DATABASE}\`.* TO '${MYSQL_USER}'@'%';"
 
-    wait "$pid"
+    mariadb -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';"
+
+    mariadb -e "FLUSH PRIVILEGES;"
+
+    mariadb-admin -u root -p"${MYSQL_ROOT_PASSWORD}" shutdown
+
 fi
 
 echo "Starting MariaDB..."
