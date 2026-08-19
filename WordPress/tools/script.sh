@@ -8,7 +8,7 @@ echo "Starting WordPress setup..."
 # 1. Wait for MariaDB
 # --------------------------------------------------
 
-echo "Waiting for MariaDB..."
+echo "Waiting for MariaDB at host ${MYSQL_HOST}..."
 
 until mysqladmin ping \
     -h"${MYSQL_HOST}" \
@@ -72,9 +72,10 @@ else
 fi
 
 # --------------------------------------------------
-# 4. Fix permissions
+# 4. Fix permissions & Runtime directories
 # --------------------------------------------------
 
+mkdir -p /run/php
 chown -R www-data:www-data /var/www/html
 
 # --------------------------------------------------

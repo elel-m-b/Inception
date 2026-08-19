@@ -1,29 +1,51 @@
 #!/bin/bash
 
+set -e
+
+echo "Initializing MariaDB..."
+
+# Unset MYSQL_HOST for local socket operations inside init-db.sh
+saved_mysql_host="${MYSQL_HOST}"
+unset MYSQL_HOST
+
+chown -R mysql:mysql /var/lib/mysql /run/mysqld
+
 if [ ! -d "/var/lib/mysql/mysql" ]; then
 
-    echo "Initializing MariaDB..."
-
+    echo "Creating database directory structure..."
     mariadb-install-db --user=mysql --datadir=/var/lib/mysql
 
     mysqld_safe --skip-networking &
+    pid="$!"
 
-    sleep 5
+    echo "Waiting for MariaDB temporary server..."
 
-    mariadb -e "CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\`;"
+    until mariadb-admin --protocol=socket --socket=/run/mysqld/mysqld.sock -u root ping --silent; do
+        sleep 1
+    done
 
-    mariadb -e "CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';"
+    echo "Setting up database and users..."
+    mariadb --protocol=socket --socket=/run/mysqld/mysqld.sock -u root <<EOF
+CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\`;
 
-    mariadb -e "GRANT ALL PRIVILEGES ON \`${MYSQL_DATABASE}\`.* TO '${MYSQL_USER}'@'%';"
+CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
 
-    mariadb -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';"
+GRANT ALL PRIVILEGES ON \`${MYSQL_DATABASE}\`.* TO '${MYSQL_USER}'@'%';
 
-    mariadb -e "FLUSH PRIVILEGES;"
+ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';
 
-    mariadb-admin -u root -p"${MYSQL_ROOT_PASSWORD}" shutdown
+FLUSH PRIVILEGES;
+EOF
+
+    echo "Shutting down temporary MariaDB server..."
+    mariadb-admin --protocol=socket --socket=/run/mysqld/mysqld.sock -u root -p"${MYSQL_ROOT_PASSWORD}" shutdown
+    wait "$pid"
+    echo "MariaDB initial configuration complete."
 
 fi
 
-echo "Starting MariaDB..."
+export MYSQL_HOST="${saved_mysql_host}"
+
+echo "Starting MariaDB main process..."
 
 exec mysqld --user=mysql --bind-address=0.0.0.0
