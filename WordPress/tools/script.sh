@@ -4,11 +4,18 @@ set -e
 
 echo "Starting WordPress setup..."
 
+MYSQL_HOST="${MYSQL_HOST:-mariadb}"
+WP_URL="${WP_URL:-https://${DOMAIN_NAME:-localhost}}"
+WP_TITLE="${WP_TITLE:-Inception}"
+
 # --------------------------------------------------
 # 1. Wait for MariaDB
 # --------------------------------------------------
 
-echo "Waiting for MariaDB at host ${MYSQL_HOST}..."
+echo "Waiting for MariaDB at host ${MYSQL_HOST}:3306..."
+
+max_retries=30
+count=0
 
 until mysqladmin ping \
     -h"${MYSQL_HOST}" \
@@ -16,7 +23,12 @@ until mysqladmin ping \
     -p"${MYSQL_PASSWORD}" \
     --silent
 do
-    echo "MariaDB is not ready yet..."
+    count=$((count + 1))
+    if [ "$count" -ge "$max_retries" ]; then
+        echo "Error: MariaDB at ${MYSQL_HOST}:3306 is not reachable after ${max_retries} attempts." >&2
+        exit 1
+    fi
+    echo "MariaDB is not ready yet... (attempt $count/$max_retries)"
     sleep 2
 done
 
@@ -45,7 +57,7 @@ else
 fi
 
 # --------------------------------------------------
-# 3. Install WordPress
+# 3. Install WordPress & Create Users
 # --------------------------------------------------
 
 if ! wp core is-installed \
@@ -69,6 +81,17 @@ else
 
     echo "WordPress is already installed."
 
+fi
+
+if [ -n "${WP_USER}" ] && ! wp user get "${WP_USER}" --path=/var/www/html --allow-root > /dev/null 2>&1; then
+    echo "Creating regular user ${WP_USER}..."
+    wp user create \
+        "${WP_USER}" \
+        "${WP_USER_EMAIL}" \
+        --role=author \
+        --user_pass="${WP_USER_PASSWORD}" \
+        --path=/var/www/html \
+        --allow-root
 fi
 
 # --------------------------------------------------

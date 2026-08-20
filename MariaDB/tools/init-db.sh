@@ -44,7 +44,7 @@ EOF
 
 fi
 
-export MYSQL_HOST="${saved_mysql_host}"
+unset MYSQL_HOST
 
 echo "Starting MariaDB main process..."
 
