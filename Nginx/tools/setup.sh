@@ -1,14 +1,8 @@
 #!/bin/bash
 
-set -e
-
-echo "Starting NGINX..."
-
 mkdir -p /etc/nginx/ssl
 
 if [ ! -f /etc/nginx/ssl/server.crt ]; then
-    echo "Creating SSL certificate..."
-
     openssl req -x509 \
         -nodes \
         -days 365 \
