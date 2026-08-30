@@ -20,37 +20,36 @@ The general architecture is:
 
 ```mermaid
 flowchart TB
-    WWW(("WWW"))
+    WWW(("Internet"))
 
-    subgraph HOST["Computer HOST"]
+    subgraph HOST["Docker Host"]
         direction TB
 
-        subgraph NETWORK["Docker Network"]
+        subgraph NETWORK["inception network (bridge)"]
             direction LR
+            NGINX["NGINX<br/><i>reverse proxy + TLS</i>"]
+            WP["WordPress<br/><i>PHP-FPM</i>"]
+            DB["MariaDB"]
 
-            DB["Container<br/>MariaDB"]
-            WP["Container<br/>WordPress + PHP-FPM"]
-            NGINX["Container<br/>NGINX"]
-
-            DB -->|3306| WP
-            WP -->|9000| NGINX
+            NGINX -->|"9000<br/>FastCGI"| WP
+            WP -->|"3306<br/>MySQL"| DB
         end
 
-        DB_VOL[("MariaDB<br/>Database")]
-        WP_VOL[("WordPress<br/>Files")]
-        
-        DB -.-> DB_VOL
-        WP -.-> WP_VOL
+        WP_VOL[("wordpress<br/>volume")]
+        DB_VOL[("mariadb<br/>volume")]
+
+        WP -.->|bind mount| WP_VOL
+        DB -.->|bind mount| DB_VOL
     end
 
-    WWW -->|443 HTTPS| NGINX
+    WWW -->|"443/tcp<br/>HTTPS"| NGINX
 
-    classDef container fill:#fff,stroke:#333,stroke-width:1px
-    classDef volume fill:#fff,stroke:#333,stroke-width:1px
-    classDef external fill:#fff,stroke:#333,stroke-width:1px
+    classDef container fill:#ffffff,stroke:#000000,stroke-width:1.5px,color:#000000
+    classDef volume fill:#ffffff,stroke:#000000,stroke-width:1.5px,color:#000000,stroke-dasharray: 3 3
+    classDef external fill:#ffffff,stroke:#000000,stroke-width:2px,color:#000000
 
-    class DB,WP,NGINX container
-    class DB_VOL,WP_VOL volume
+    class NGINX,WP,DB container
+    class WP_VOL,DB_VOL volume
     class WWW external
 ```
 
