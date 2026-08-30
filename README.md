@@ -18,28 +18,40 @@ The services communicate through a dedicated Docker network, while persistent da
 
 The general architecture is:
 
-```text
-                    HTTPS
-                      │
-                      ▼
-                ┌───────────┐
-                │   NGINX   │
-                │  :443     │
-                └─────┬─────┘
-                      │
-                      ▼
-                ┌───────────┐
-                │ WordPress │
-                │ PHP-FPM   │
-                └─────┬─────┘
-                      │
-                      ▼
-                ┌───────────┐
-                │  MariaDB  │
-                │  Database │
-                └───────────┘
+```mermaid
+flowchart TB
+    WWW(("WWW"))
 
-             Docker Network
+    subgraph HOST["Computer HOST"]
+        direction TB
+
+        subgraph NETWORK["Docker Network"]
+            direction LR
+
+            DB["Container<br/>MariaDB"]
+            WP["Container<br/>WordPress + PHP-FPM"]
+            NGINX["Container<br/>NGINX"]
+
+            DB -->|3306| WP
+            WP -->|9000| NGINX
+        end
+
+        DB_VOL[("MariaDB<br/>Database")]
+        WP_VOL[("WordPress<br/>Files")]
+        
+        DB -.-> DB_VOL
+        WP -.-> WP_VOL
+    end
+
+    WWW -->|443 HTTPS| NGINX
+
+    classDef container fill:#fff,stroke:#333,stroke-width:1px
+    classDef volume fill:#fff,stroke:#333,stroke-width:1px
+    classDef external fill:#fff,stroke:#333,stroke-width:1px
+
+    class DB,WP,NGINX container
+    class DB_VOL,WP_VOL volume
+    class WWW external
 ```
 
 ---
