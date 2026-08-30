@@ -9,7 +9,7 @@ if [ ! -f /etc/nginx/ssl/server.crt ]; then
         -newkey rsa:2048 \
         -keyout /etc/nginx/ssl/server.key \
         -out /etc/nginx/ssl/server.crt \
-        -subj "/C=MA/ST=Rabat/L=Rabat/O=42/OU=Inception/CN=localhost"
+        -subj "/C=MA/ST=Rabat/L=Rabat/O=42/OU=Inception/CN=elel-m-b.42.fr"
 fi
 
 nginx -g "daemon off;"

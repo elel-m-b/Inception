@@ -5,7 +5,7 @@ if [ -f /run/secrets/db_password ]; then
     MYSQL_PASSWORD=$(cat /run/secrets/db_password)
 fi
 
-cd /var/www/html
+# cd /var/www/html
 
 # Wait for MariaDB database server to be ready
 while ! mariadb -h mariadb -u "${MYSQL_USER}" -p"${MYSQL_PASSWORD}" -e "SELECT 1;" >/dev/null 2>&1; do
@@ -14,29 +14,30 @@ done
 
 # Create configuration if not present
 if [ ! -f /var/www/html/wp-config.php ]; then
-    wp core download --allow-root
-    wp config create --allow-root \
-        --dbname="${MYSQL_DATABASE}" \
-        --dbuser="${MYSQL_USER}" \
-        --dbpass="${MYSQL_PASSWORD}" \
-        --dbhost="mariadb:3306"
-fi
+    wp core download --path=/var/www/html --allow-root
 
-# Install WordPress and create user if not installed
-if ! wp core is-installed --allow-root; then
-    wp core install --allow-root \
-        --url="${DOMAIN_NAME}" \
-        --title="${WP_TITLE}" \
-        --admin_user="${WP_ADMIN_USER}" \
-        --admin_password="${WP_ADMIN_PASSWORD}" \
-        --admin_email="${WP_ADMIN_EMAIL}"
+    wp config create \
+        --dbname=${MYSQL_DATABASE} \
+        --dbuser=${MYSQL_USER} \
+        --dbpass=${MYSQL_PASSWORD} \
+        --dbhost=mariadb \
+        --path=/var/www/html \
+        --allow-root
 
-    wp user create --allow-root \
-        "${WP_USER}" \
-        "${WP_USER_EMAIL}" \
-        --user_pass="${WP_USER_PASSWORD}"
+    wp core install \
+        --url=${WP_URL:-https://${DOMAIN_NAME}} \
+        --title="Inception" \
+        --admin_user=${WP_ADMIN_USER} \
+        --admin_password=${WP_ADMIN_PASSWORD} \
+        --admin_email=${WP_ADMIN_EMAIL} \
+        --path=/var/www/html \
+        --allow-root
 
-    chown -R www-data:www-data /var/www/html
+    wp user create ${WP_USER} ${WP_USER_EMAIL} \
+        --role=author \
+        --user_pass=${WP_USER_PASSWORD} \
+        --path=/var/www/html \
+        --allow-root
 fi
 
 sed -i 's|^listen = .*|listen = 9000|' \

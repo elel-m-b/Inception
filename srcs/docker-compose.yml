@@ -49,12 +49,18 @@ services:
       - inception
 
 volumes:
-
   mariadb_data:
     driver: local
-
+    driver_opts:
+      type: none
+      device: /home/hassan/data/mariadb
+      o: bind
   wordpress_data:
     driver: local
+    driver_opts:
+      type: none
+      device: /home/hassan/data/wordpress
+      o: bind
 
 networks:
 

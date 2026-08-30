@@ -39,5 +39,8 @@ RUN chmod +x /usr/local/bin/script.sh
 # PHP-FPM listens on port 9000
 EXPOSE 9000
 
+WORKDIR /var/www/html
+
 # Run the WordPress startup script when the container starts
 ENTRYPOINT ["/usr/local/bin/script.sh"]
+# CMD [ "bash" ]
