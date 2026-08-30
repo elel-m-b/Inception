@@ -19,6 +19,7 @@ The services communicate through a dedicated Docker network, while persistent da
 The general architecture is:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '20px'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 80, 'htmlLabels': true}}}%%
 flowchart TB
     WWW(("Internet"))
 
@@ -44,9 +45,9 @@ flowchart TB
 
     WWW -->|"443/tcp<br/>HTTPS"| NGINX
 
-    classDef container fill:#ffffff,stroke:#000000,stroke-width:1.5px,color:#000000
-    classDef volume fill:#ffffff,stroke:#000000,stroke-width:1.5px,color:#000000,stroke-dasharray: 3 3
-    classDef external fill:#ffffff,stroke:#000000,stroke-width:2px,color:#000000
+    classDef container fill:#ffffff,stroke:#000000,stroke-width:2px,color:#000000
+    classDef volume fill:#ffffff,stroke:#000000,stroke-width:2px,color:#000000,stroke-dasharray: 3 3
+    classDef external fill:#ffffff,stroke:#000000,stroke-width:3px,color:#000000
 
     class NGINX,WP,DB container
     class WP_VOL,DB_VOL volume
