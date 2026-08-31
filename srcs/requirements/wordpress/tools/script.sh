@@ -4,6 +4,12 @@
 if [ -f /run/secrets/db_password ]; then
     MYSQL_PASSWORD=$(cat /run/secrets/db_password)
 fi
+if [ -f /run/secrets/credentials.txt ]; then
+    WP_USER_PASSWORD=$(cat /run/secrets/credentials.txt)
+fi
+if [ -f /run/secrets/admin.txt ]; then
+    WP_ADMIN_PASSWORD=$(cat /run/secrets/admin.txt)
+fi
 
 
 # Create configuration if not present

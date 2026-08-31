@@ -26,6 +26,10 @@ services:
       - ../.env
     secrets:
       - db_password
+      - source: credentials
+        target: credentials.txt
+      - source: admin
+        target: admin.txt
     volumes:
       - wordpress_data:/var/www/html
     depends_on:
@@ -74,3 +78,9 @@ secrets:
 
   db_root_password:
     file: ../secrets/db_root_password.txt
+
+  credentials:
+    file: ../secrets/credentials.txt
+
+  admin:
+    file: ../secrets/admin.txt
