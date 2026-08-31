@@ -5,12 +5,6 @@ if [ -f /run/secrets/db_password ]; then
     MYSQL_PASSWORD=$(cat /run/secrets/db_password)
 fi
 
-# cd /var/www/html
-
-# Wait for MariaDB database server to be ready
-while ! mariadb -h mariadb -u "${MYSQL_USER}" -p"${MYSQL_PASSWORD}" -e "SELECT 1;" >/dev/null 2>&1; do
-    sleep 1
-done
 
 # Create configuration if not present
 if [ ! -f /var/www/html/wp-config.php ]; then

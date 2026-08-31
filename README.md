@@ -28,7 +28,7 @@ flowchart TB
 
         subgraph NETWORK["inception network (bridge)"]
             direction LR
-            NGINX["NGINX<br/><i>reverse proxy + TLS</i>"]
+            NGINX["NGINX<br/><i>TLS</i>"]
             WP["WordPress<br/><i>PHP-FPM</i>"]
             DB["MariaDB"]
 
@@ -200,16 +200,11 @@ For example:
 NGINX ───────► WordPress ───────► MariaDB
 ```
 
-Containers can communicate using service names instead of exposing every service to the host.
-
 For example, WordPress can connect to MariaDB using:
 
 ```text
 mariadb:3306
 ```
-
-rather than exposing MariaDB directly to the host.
-
 ### Host Network
 
 With host networking, a container uses the host machine's network stack directly.

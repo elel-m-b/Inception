@@ -1,0 +1,14 @@
+big pic
+mariadb script
+wordpres script
+nginx conf
+nginx script
+volumes
+docker compose
+networks
+basics checks (database , wordpress, nginx)
+dockerfile
+vm vs docker
+.env
+Makefile
+commands checkers

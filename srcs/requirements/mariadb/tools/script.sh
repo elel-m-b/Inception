@@ -8,13 +8,10 @@ if [ -f /run/secrets/db_root_password ]; then
     MYSQL_ROOT_PASSWORD=$(cat /run/secrets/db_root_password)
 fi
 
-# Unset MYSQL_HOST for local script operations so mariadb client uses local socket
-unset MYSQL_HOST
 
 
 # 1. Create /run/mysqld
 # 2. Set permissions
-# 3. Start temporary server for setup if database does not exist
 # 4. Create database
 # 5. Create user
 # 6. Configure permissions
@@ -23,17 +20,18 @@ unset MYSQL_HOST
 mkdir -p /run/mysqld
 chown -R mysql:mysql /var/lib/mysql /run/mysqld
 
+
+# mariadb-install-db
+# → Initialize MariaDB data storage
+# → Create the system tables
+# → --user=mysql → prepare them for the mysql Linux user
+# → --datadir=/var/lib/mysql → store everything in /var/lib/mysql
+
 if [ ! -d "/var/lib/mysql/mysql" ]; then
     mariadb-install-db --user=mysql --datadir=/var/lib/mysql
 fi
 
-if [ ! -d "/var/lib/mysql/${MYSQL_DATABASE}" ]; then
-    mariadbd-safe --datadir=/var/lib/mysql &
-    while ! mariadb-admin --socket=/run/mysqld/mysqld.sock ping --silent; do
-        sleep 1
-    done
-
-    mariadb --socket=/run/mysqld/mysqld.sock -u root <<EOF
+mysql -u root -p"$MYSQL_ROOT_PASSWORD" <<EOF
 CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\`;
 
 CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
@@ -48,9 +46,7 @@ GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 EOF
 
-    mariadb-admin --socket=/run/mysqld/mysqld.sock -u root -p"${MYSQL_ROOT_PASSWORD}" shutdown
-    wait
-fi
+
 
 # Start MariaDB normally
 exec mysqld --user=mysql --bind-address=0.0.0.0
