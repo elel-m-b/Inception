@@ -31,7 +31,7 @@ if [ ! -d "/var/lib/mysql/mysql" ]; then
     mariadb-install-db --user=mysql --datadir=/var/lib/mysql
 fi
 
-mysql -u root -p"$MYSQL_ROOT_PASSWORD" <<EOF
+cat <<EOF > /tmp/init.sql
 CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\`;
 
 CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
@@ -46,7 +46,5 @@ GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 EOF
 
-
-
 # Start MariaDB normally
-exec mysqld --user=mysql --bind-address=0.0.0.0
+exec mysqld --user=mysql --bind-address=0.0.0.0 --init-file=/tmp/init.sql
